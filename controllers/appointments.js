@@ -1,4 +1,5 @@
 const Appointment = require('../models/Appointment');
+const QRCode = require('qrcode');
 const { validateBookingSelection, getAppointment, updateAppointment, cancelAppointment } = require('../utils/booking');
 const { getAccessibleAppointment } = require('../utils/appointment-access');
 
@@ -20,6 +21,9 @@ async function createAppointment(req, res) {
 
 async function getOwnAppointment(req, res) {
   const data = await getAccessibleAppointment(req.params.id, req.user);
+  data.qrCodeDataUrl = await QRCode.toDataURL(`DENTIST-BOOKING:${data.bookingReference}`, {
+    type: 'image/png', errorCorrectionLevel: 'M', margin: 4, width: 320,
+  });
   return res.json({ success: true, data });
 }
 

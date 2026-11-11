@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { randomBytes, randomUUID } = require('node:crypto');
 const mongoose = require('mongoose');
+const { PNG } = require('pngjs');
+const jsQR = require('jsqr');
 const { createMongo } = require('../scripts/mongo');
 const { connectDB, prepareIndexes } = require('../config/db');
 const { IDS, fixtureDates, seedFixtures } = require('../scripts/fixtures');
@@ -242,4 +244,43 @@ test('a cancelled booking hides its questionnaire and rejects further responses'
   assert.equal((await request('GET', path, undefined, adminToken)).status, 404);
   assert.equal((await request('PUT', path, { reasonForVisit: 'Updated' }, user.token)).status, 404);
   assert.equal(await Questionnaire.countDocuments({ appointment: id }), 1);
+});
+
+function decodeQr(dataUrl) {
+  assert.match(dataUrl, /^data:image\/png;base64,/);
+  const png = PNG.sync.read(Buffer.from(dataUrl.split(',')[1], 'base64'));
+  const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+  assert.ok(decoded, 'The returned PNG must contain a readable QR code.');
+  return decoded.data;
+}
+
+test('booking detail generates a readable QR containing only the stable booking reference', async () => {
+  const path = `/appointments/${IDS.extraAppointment}`;
+  const first = await request('GET', path, undefined, userToken);
+  const second = await request('GET', path, undefined, userToken);
+  assert.equal(first.status, 200);
+  const payload = decodeQr(first.body.data.qrCodeDataUrl);
+  assert.equal(payload, `DENTIST-BOOKING:${IDS.extraAppointment}`);
+  assert.equal(decodeQr(second.body.data.qrCodeDataUrl), payload);
+  const edited = await request('PATCH', path, { dentist: IDS.secondDentist }, userToken);
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.data.qrCodeDataUrl, undefined);
+  const afterEdit = await request('GET', path, undefined, userToken);
+  assert.equal(decodeQr(afterEdit.body.data.qrCodeDataUrl), payload);
+  assert.equal((await request('GET', '/appointments', undefined, userToken)).body.data[0].qrCodeDataUrl, undefined);
+  assert.equal((await request('GET', path, undefined, otherUserToken)).status, 404);
+  assert.equal((await request('GET', path, undefined, adminToken)).status, 403);
+});
+
+test('different bookings produce different QR references and cancelled bookings cannot produce a QR', async () => {
+  const user = await registerUser();
+  const created = await request('POST', '/appointments', { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate }, user.token);
+  const id = created.body.data._id;
+  const detail = await request('GET', `/appointments/${id}`, undefined, user.token);
+  assert.equal(decodeQr(detail.body.data.qrCodeDataUrl), `DENTIST-BOOKING:${id}`);
+  assert.notEqual(id, IDS.extraAppointment);
+  assert.equal((await request('DELETE', `/appointments/${id}`, undefined, user.token)).status, 200);
+  const cancelled = await request('GET', `/appointments/${id}`, undefined, user.token);
+  assert.equal(cancelled.status, 404);
+  assert.equal(cancelled.body.data, undefined);
 });
