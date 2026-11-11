@@ -1,0 +1,15 @@
+Additional Requirements — Dentist Booking
+
+1. The system shall allow a registered user to complete a pre-appointment questionnaire associated with their booking, and allow only the booking owner and the admin to access the responses. (0.5)
+
+2. The system shall allow the admin to mark booked users as arrived, maintain their arrival order, and update their queue status to waiting, called, or completed. (0.5)
+
+3. The system shall allow a registered user to join or leave a waiting list for a selected dentist and date, and allow the admin to view waiting users in registration order when a booking is cancelled. (1)
+
+4. The system shall generate a unique QR code containing the booking reference when a registered user views their booking. (1)
+
+Total: 3 points (subject to instructor assessment)
+
+Ownership:
+- A: requirements 1 and 4
+- B: requirements 2 and 3

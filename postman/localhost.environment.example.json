@@ -1,0 +1,150 @@
+{
+  "name": "Dentist Booking LOCAL example (credentials empty)",
+  "values": [
+    {
+      "key": "serverUrl",
+      "value": "http://127.0.0.1:5003",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5003/api/v1",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "demoPassword",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.test",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "extraUserEmail",
+      "value": "extra-owner@example.test",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "waiterAEmail",
+      "value": "waiter-a@example.test",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "waiterBEmail",
+      "value": "waiter-b@example.test",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "dentistId",
+      "value": "000000000000000000000101",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "secondDentistId",
+      "value": "000000000000000000000102",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "adminAppointmentId",
+      "value": "000000000000000000000202",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "extraAppointmentId",
+      "value": "000000000000000000000203",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "queueAppointmentId",
+      "value": "000000000000000000000204",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "cancelledAppointmentId",
+      "value": "000000000000000000000205",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "bookingDate",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "changedBookingDate",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "extraBookingDate",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "userToken",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "extraUserToken",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "waiterAToken",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "waiterBToken",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "appointmentId",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "queueEntryId",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "waitlistEntryId",
+      "value": "",
+      "enabled": true,
+      "type": "default"
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
