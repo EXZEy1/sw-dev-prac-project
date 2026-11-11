@@ -314,6 +314,7 @@ test('the additional Newman collection proves response permissions and exports a
   const dataUrl = summary.environment.get('bookingQrDataUrl');
   const reference = summary.environment.get('bookingQrReference');
   assert.equal(reference, IDS.extraAppointment);
+  fs.mkdirSync(path.resolve(__dirname, '../.local'), { recursive: true });
   const outputDirectory = fs.mkdtempSync(path.resolve(__dirname, '../.local/qr-export-test-'));
   let file;
   try {
