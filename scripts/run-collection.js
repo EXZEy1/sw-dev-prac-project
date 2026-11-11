@@ -5,11 +5,11 @@ const { loadEnv } = require('../config/env');
 const { IDS, fixtureDates } = require('./fixtures');
 
 loadEnv();
-const names = new Set(['p0', 'admin-core', 'queue-waitlist']);
+const names = new Set(['p0', 'user-core', 'admin-core', 'queue-waitlist']);
 const name = process.argv[2];
 if (!names.has(name)) throw new Error('Unknown collection.');
 if (!process.env.DEMO_PASSWORD) throw new Error('Run npm run setup:local first.');
-if (name !== 'p0') console.log('B feature collection: reserved routes return 501 until B implements them.');
+if (['admin-core', 'queue-waitlist'].includes(name)) console.log('B feature collection: reserved routes return 501 until B implements them.');
 const postman = path.resolve(__dirname, '../postman');
 const collection = JSON.parse(fs.readFileSync(path.join(postman, `${name}.collection.json`), 'utf8'));
 const environment = JSON.parse(fs.readFileSync(path.join(postman, 'localhost.environment.example.json'), 'utf8'));

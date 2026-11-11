@@ -17,6 +17,7 @@
     "test": "node --test --test-concurrency=1 __tests__/p0.test.js __tests__/user-features.test.js",
     "check:p0": "npm test",
     "demo:p0": "node scripts/run-collection.js p0",
+    "demo:user": "node scripts/run-collection.js user-core",
     "demo:admin": "node scripts/run-collection.js admin-core",
     "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist"
   },

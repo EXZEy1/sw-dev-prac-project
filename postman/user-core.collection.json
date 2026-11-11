@@ -1,0 +1,629 @@
+{
+  "info": {
+    "name": "Dentist Booking - 01-08 User Core",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Core requirements 1-6 in presentation order. Creates a fresh user each run, enforces one booking and cancels it before logout. Credentials come from the local environment."
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "(() => {",
+          "if (pm.info.requestName === '01 Register - validation requires telephone') {",
+          "  pm.environment.set('userEmail', 'runner-' + pm.variables.replaceIn('{{$guid}}') + '@example.test');",
+          "  ['userToken', 'userId', 'appointmentId', 'cancelledAt'].forEach(key => pm.environment.unset(key));",
+          "  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
+          "  const date = new Date(today + 'T12:00:00.000Z');",
+          "  date.setUTCDate(date.getUTCDate() + 7); pm.environment.set('bookingDate', date.toISOString().slice(0, 10));",
+          "  date.setUTCDate(date.getUTCDate() + 1); pm.environment.set('changedBookingDate', date.toISOString().slice(0, 10));",
+          "}",
+          "})();"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Register - validation requires telephone",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Runner User\",\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Telephone validation', () => pm.expect(pm.response.json().message).to.include('tel'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Register - create a new user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Runner User\",\"tel\":\"0812345678\",\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const data = pm.response.json();",
+              "pm.test('User registered with telephone', () => { pm.expect(data.role).to.equal('user'); pm.expect(data.tel).to.equal('0812345678'); });",
+              "pm.test('Password is private', () => pm.expect(data).not.to.have.property('password'));",
+              "if (pm.response.code === 201) pm.environment.set('userId', data._id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 User login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json();",
+              "pm.test('Correct user and token', () => { pm.expect(data._id).to.equal(pm.environment.get('userId')); pm.expect(data.token).to.be.a('string'); });",
+              "if (pm.response.code === 200) pm.environment.set('userToken', data.token);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 View dentist list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/dentists",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('Dentist information is available', () => { pm.expect(data.length).to.be.above(0); data.forEach(d => { pm.expect(d.name).to.be.a('string'); pm.expect(d.yearsOfExperience).to.be.a('number'); pm.expect(d.expertise).to.be.a('string'); }); });",
+              "if (data && data.length) { pm.environment.set('dentistId', data[0]._id); pm.environment.set('secondDentistId', (data[1] || data[0])._id); }",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 View dentist detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/dentists/{{dentistId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Selected dentist', () => pm.expect(pm.response.json().data._id).to.equal(pm.environment.get('dentistId')));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Create own booking",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"dentist\":\"{{dentistId}}\",\"bookingDate\":\"{{bookingDate}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const data = pm.response.json().data;",
+              "pm.test('Booking belongs to the registered user', () => { pm.expect(data.user._id).to.equal(pm.environment.get('userId')); pm.expect(data.dentist._id).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('bookingDate')); });",
+              "if (pm.response.code === 201) pm.environment.set('appointmentId', data._id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Reject a second booking",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"dentist\":\"{{secondDentistId}}\",\"bookingDate\":\"{{changedBookingDate}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('One-booking quota', () => pm.expect(pm.response.json().code).to.equal('BOOKING_LIMIT_REACHED'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 View own booking list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Exactly one own booking', () => { const body = pm.response.json(); pm.expect(body.count).to.equal(1); pm.expect(body.data[0]._id).to.equal(pm.environment.get('appointmentId')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 View own booking detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Own booking reference', () => { const data = pm.response.json().data; pm.expect(data.bookingReference).to.equal(pm.environment.get('appointmentId')); pm.expect(data.user._id).to.equal(pm.environment.get('userId')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Edit own booking",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"dentist\":\"{{secondDentistId}}\",\"bookingDate\":\"{{changedBookingDate}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Booking changed', () => { const data = pm.response.json().data; pm.expect(data.dentist._id).to.equal(pm.environment.get('secondDentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); pm.expect(data.user._id).to.equal(pm.environment.get('userId')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Verify saved changes",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Changes persisted', () => { const data = pm.response.json().data; pm.expect(data.dentist._id).to.equal(pm.environment.get('secondDentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Delete own booking",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('Cancellation saved', () => { pm.expect(data.appointmentId).to.equal(pm.environment.get('appointmentId')); pm.expect(data.cancelledAt).to.be.a('string'); });",
+              "if (pm.response.code === 200) pm.environment.set('cancelledAt', data.cancelledAt);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Repeated cancellation keeps the same timestamp",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Cancellation is idempotent', () => pm.expect(pm.response.json().data.cancelledAt).to.equal(pm.environment.get('cancelledAt')));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Verify empty own booking list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('No current booking', () => { pm.expect(pm.response.json().count).to.equal(0); pm.expect(pm.response.json().data).to.deep.equal([]); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Cancelled booking is hidden",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 User logout",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/logout",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Logout completed', () => pm.expect(pm.response.json().data).to.equal(null));",
+              "pm.environment.unset('userToken');",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Access without client token is denied",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/auth/me",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

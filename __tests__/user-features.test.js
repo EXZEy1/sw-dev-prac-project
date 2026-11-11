@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { randomBytes, randomUUID } = require('node:crypto');
 const mongoose = require('mongoose');
+const fs = require('node:fs');
+const path = require('node:path');
+const newman = require('newman');
 const { PNG } = require('pngjs');
 const jsQR = require('jsqr');
 const { createMongo } = require('../scripts/mongo');
@@ -283,4 +286,21 @@ test('different bookings produce different QR references and cancelled bookings 
   const cancelled = await request('GET', `/appointments/${id}`, undefined, user.token);
   assert.equal(cancelled.status, 404);
   assert.equal(cancelled.body.data, undefined);
+});
+
+async function runCollection(name) {
+  const collection = JSON.parse(fs.readFileSync(path.resolve(__dirname, `../postman/${name}.collection.json`), 'utf8'));
+  const variables = { baseUrl: `${origin}/api/v1`, demoPassword: password };
+  return new Promise((resolve, reject) => {
+    newman.run({ collection, envVar: Object.entries(variables).map(([key, value]) => ({ key, value })), reporters: [], timeoutRequest: 5000 },
+      (error, summary) => error ? reject(error) : resolve(summary));
+  });
+}
+
+test('the user core Newman collection passes twice with fresh users and runtime booking IDs', async () => {
+  for (let run = 0; run < 2; run++) {
+    const summary = await runCollection('user-core');
+    assert.deepEqual(summary.run.failures.map((failure) => ({ name: failure.source.name, message: failure.error.message })), []);
+    assert.equal(summary.run.stats.requests.total, 17);
+  }
 });
