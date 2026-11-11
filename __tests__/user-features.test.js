@@ -75,3 +75,53 @@ test('dentist detail distinguishes malformed IDs from unavailable dentists', asy
   assert.equal((await request('GET', '/dentists/not-an-id', undefined, userToken)).status, 400);
   assert.equal((await request('GET', '/dentists/ffffffffffffffffffffffff', undefined, userToken)).status, 404);
 });
+
+test('a user creates one booking and lists only their own booking despite query filters', async () => {
+  const user = await registerUser();
+  const empty = await request('GET', '/appointments', undefined, user.token);
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.body.data, []);
+  const selection = { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate };
+  const created = await request('POST', '/appointments', selection, user.token);
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.user._id, user._id);
+  assert.equal(created.body.data.dentist._id, selection.dentist);
+  assert.equal(created.body.data.bookingDate, selection.bookingDate);
+  assert.equal(created.body.data.bookingReference, created.body.data._id);
+  assert.equal(created.body.data.user.email, undefined);
+  const own = await request('GET', `/appointments?user=${IDS.extraOwner}&status=cancelled`, undefined, user.token);
+  assert.equal(own.body.count, 1);
+  assert.equal(own.body.data[0]._id, created.body.data._id);
+  const duplicate = await request('POST', '/appointments', { ...selection, dentist: IDS.secondDentist }, user.token);
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.code, 'BOOKING_LIMIT_REACHED');
+});
+
+test('simultaneous booking requests enforce the one-booking quota through the HTTP API', async () => {
+  const user = await registerUser();
+  const selection = { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate };
+  const results = await Promise.all([
+    request('POST', '/appointments', selection, user.token),
+    request('POST', '/appointments', selection, user.token),
+  ]);
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
+  assert.equal(results.find((result) => result.status === 409).body.code, 'BOOKING_LIMIT_REACHED');
+  assert.equal((await request('GET', '/appointments', undefined, user.token)).body.count, 1);
+});
+
+test('booking creation validates the selection, rejects owner/status injection and requires a user role', async () => {
+  const user = await registerUser();
+  const valid = { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate };
+  const invalidBodies = [
+    {}, [], { ...valid, dentist: { $ne: null } }, { ...valid, bookingDate: '2026-02-30' },
+    { ...valid, bookingDate: '2000-01-01' }, { ...valid, user: IDS.extraOwner }, { ...valid, status: 'cancelled' },
+  ];
+  for (const body of invalidBodies) {
+    assert.equal((await request('POST', '/appointments', body, user.token)).status, 400);
+  }
+  assert.equal((await request('POST', '/appointments', { ...valid, dentist: 'ffffffffffffffffffffffff' }, user.token)).status, 404);
+  assert.equal((await request('POST', '/appointments', valid)).status, 401);
+  assert.equal((await request('POST', '/appointments', valid, adminToken)).status, 403);
+  assert.equal((await request('GET', '/appointments', undefined, adminToken)).status, 403);
+  assert.equal((await request('GET', '/appointments', undefined, user.token)).body.count, 0);
+});
