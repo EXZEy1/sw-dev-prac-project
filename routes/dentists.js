@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { protect } = require('../middleware/auth');
-const { pending } = require('../controllers/pending');
+const { getDentists, getDentist } = require('../controllers/dentists');
 router.use(protect);
-router.get('/', pending('Dentist list - A/P1'));
-router.get('/:id', pending('Dentist detail - A/P1'));
+router.get('/', getDentists);
+router.get('/:id', getDentist);
 module.exports = router;

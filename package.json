@@ -12,7 +12,7 @@
     "setup:local": "node scripts/setup-local.js",
     "db:demo": "node scripts/demo-db.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test --test-concurrency=1 __tests__/p0.test.js",
+    "test": "node --test --test-concurrency=1 __tests__/p0.test.js __tests__/user-features.test.js",
     "check:p0": "npm test",
     "demo:p0": "node scripts/run-collection.js p0",
     "demo:admin": "node scripts/run-collection.js admin-core",
