@@ -2,7 +2,7 @@
   "info": {
     "name": "Dentist Booking - P0 starter checks",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Checks implemented auth, readiness and reserved route ownership. A 501 assertion is a P0 placeholder check, not proof that a B feature works."
+    "description": "Checks auth, readiness and route role guards. Admin access may return 200 when implemented or explicit 501 during handoff. Use admin-core and queue-waitlist collections to verify B features."
   },
   "item": [
     {
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "name": "P0 Admin route reserved - NOT completed admin core",
+      "name": "P0 Admin role guard - feature demo is separate",
       "request": {
         "method": "GET",
         "header": [
@@ -216,8 +216,8 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 501', () => pm.response.to.have.status(501));",
-              "pm.test('Explicit unfinished feature', () => pm.expect(pm.response.json().code).to.equal('FEATURE_NOT_IMPLEMENTED')); "
+              "pm.test('Admin passes the role guard', () => pm.expect(pm.response.code).to.be.oneOf([200, 501]));",
+              "pm.test('Explicit response for the current phase', () => { if (pm.response.code === 501) pm.expect(pm.response.json().code).to.equal('FEATURE_NOT_IMPLEMENTED'); else { pm.expect(pm.response.json().success).to.equal(true); pm.expect(pm.response.json().data).to.be.an('array'); } });"
             ]
           }
         }
