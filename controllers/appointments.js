@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
-const { validateBookingSelection, getAppointment } = require('../utils/booking');
+const { validateBookingSelection, getAppointment, updateAppointment, cancelAppointment } = require('../utils/booking');
+const { getAccessibleAppointment } = require('../utils/appointment-access');
 
 async function getAppointments(req, res) {
   const appointments = await Appointment.find({ user: req.user.id, status: 'booked' }).select('_id');
@@ -17,4 +18,21 @@ async function createAppointment(req, res) {
   return res.status(201).json({ success: true, data });
 }
 
-module.exports = { getAppointments, createAppointment };
+async function getOwnAppointment(req, res) {
+  const data = await getAccessibleAppointment(req.params.id, req.user);
+  return res.json({ success: true, data });
+}
+
+async function updateOwnAppointment(req, res) {
+  await getAccessibleAppointment(req.params.id, req.user, { includeCancelled: true });
+  const data = await updateAppointment(req.params.id, req.body);
+  return res.json({ success: true, data });
+}
+
+async function cancelOwnAppointment(req, res) {
+  await getAccessibleAppointment(req.params.id, req.user, { includeCancelled: true });
+  const data = await cancelAppointment(req.params.id);
+  return res.json({ success: true, data });
+}
+
+module.exports = { getAppointments, createAppointment, getOwnAppointment, updateOwnAppointment, cancelOwnAppointment };

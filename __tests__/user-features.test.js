@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { createMongo } = require('../scripts/mongo');
 const { connectDB, prepareIndexes } = require('../config/db');
 const { IDS, fixtureDates, seedFixtures } = require('../scripts/fixtures');
+const Appointment = require('../models/Appointment');
 const app = require('../server');
 
 const password = randomBytes(16).toString('hex');
@@ -124,4 +125,60 @@ test('booking creation validates the selection, rejects owner/status injection a
   assert.equal((await request('POST', '/appointments', valid, adminToken)).status, 403);
   assert.equal((await request('GET', '/appointments', undefined, adminToken)).status, 403);
   assert.equal((await request('GET', '/appointments', undefined, user.token)).body.count, 0);
+});
+
+test('an owner views, edits and cancels a booking, then can book again', async () => {
+  const user = await registerUser();
+  const selection = { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate };
+  const created = await request('POST', '/appointments', selection, user.token);
+  const id = created.body.data._id;
+  const detail = await request('GET', `/appointments/${id}`, undefined, user.token);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.body.data._id, id);
+  const changes = { dentist: IDS.secondDentist, bookingDate: fixtureDates().changedBookingDate };
+  const edited = await request('PATCH', `/appointments/${id}`, changes, user.token);
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.data.dentist._id, changes.dentist);
+  assert.equal(edited.body.data.bookingDate, changes.bookingDate);
+  assert.equal(edited.body.data.user._id, user._id);
+  for (const body of [{}, { user: IDS.extraOwner }, { status: 'cancelled' }, { bookingDate: '2000-01-01' }]) {
+    assert.equal((await request('PATCH', `/appointments/${id}`, body, user.token)).status, 400);
+  }
+  const cancelled = await request('DELETE', `/appointments/${id}`, undefined, user.token);
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.data.appointmentId, id);
+  assert.equal(cancelled.body.data.dentistId, changes.dentist);
+  assert.equal(cancelled.body.data.bookingDate, changes.bookingDate);
+  assert.ok(Number.isFinite(Date.parse(cancelled.body.data.cancelledAt)));
+  const repeated = await request('DELETE', `/appointments/${id}`, undefined, user.token);
+  assert.deepEqual(repeated.body.data, cancelled.body.data);
+  const saved = await Appointment.findById(id);
+  assert.equal(saved.status, 'cancelled');
+  assert.equal(saved.cancelledAt.toISOString(), cancelled.body.data.cancelledAt);
+  assert.equal((await request('GET', '/appointments', undefined, user.token)).body.count, 0);
+  assert.equal((await request('GET', `/appointments/${id}`, undefined, user.token)).status, 404);
+  assert.equal((await request('PATCH', `/appointments/${id}`, changes, user.token)).status, 409);
+  assert.equal((await request('POST', '/appointments', selection, user.token)).status, 201);
+});
+
+test('another user cannot read, edit or cancel a booking and cannot change its owner', async () => {
+  const path = `/appointments/${IDS.extraAppointment}`;
+  for (const [method, body] of [['GET', undefined], ['PATCH', { dentist: IDS.secondDentist }], ['DELETE', undefined]]) {
+    const result = await request(method, path, body, otherUserToken);
+    assert.equal(result.status, 404);
+    assert.equal(result.body.code, 'NOT_FOUND');
+  }
+  const unchanged = await request('GET', path, undefined, userToken);
+  assert.equal(unchanged.body.data.user._id, IDS.extraOwner);
+  assert.equal(unchanged.body.data.dentist._id, IDS.dentist);
+  assert.equal(unchanged.body.data.status, 'booked');
+  assert.equal((await request('GET', path, undefined, adminToken)).status, 403);
+});
+
+test('own booking endpoints validate IDs and require login before accessing a booking', async () => {
+  for (const [method, body] of [['GET', undefined], ['PATCH', { dentist: IDS.secondDentist }], ['DELETE', undefined]]) {
+    assert.equal((await request(method, `/appointments/${IDS.extraAppointment}`, body)).status, 401);
+    assert.equal((await request(method, '/appointments/not-an-id', body, userToken)).status, 400);
+    assert.equal((await request(method, '/appointments/ffffffffffffffffffffffff', body, userToken)).status, 404);
+  }
 });
