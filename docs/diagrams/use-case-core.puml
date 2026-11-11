@@ -1,0 +1,54 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam usecaseBackgroundColor #E9F4FA
+skinparam usecaseBorderColor #326784
+skinparam rectangleBorderColor #326784
+title Dentist Booking - Core Use Cases
+
+actor Guest
+actor "Registered user" as User
+actor Admin
+
+rectangle "Dentist Booking System" {
+  usecase "Register\n(core #1)" as Register
+  usecase "Log in\n(core #2)" as Login
+  usecase "Log out\n(core #2)" as Logout
+  usecase "View dentist information\n(core #3)" as Dentists
+  usecase "Create own booking\n(core #3)" as Create
+  usecase "View own booking\n(core #4)" as ViewOwn
+  usecase "Edit own booking\n(core #5)" as EditOwn
+  usecase "Delete own booking\n(core #6)" as DeleteOwn
+  usecase "View any booking\n(core #7)" as ViewAny
+  usecase "Edit any booking\n(core #8)" as EditAny
+  usecase "Delete any booking\n(core #9)" as DeleteAny
+}
+
+Guest --> Register
+User --> Login
+User --> Logout
+User --> Dentists
+User --> Create
+User --> ViewOwn
+User --> EditOwn
+User --> DeleteOwn
+Admin --> Login
+Admin --> Logout
+Admin --> ViewAny
+Admin --> EditAny
+Admin --> DeleteAny
+
+note right of Create
+  Select a dentist and a date.
+  One booked appointment per user.
+  Cancelling allows a new booking.
+end note
+
+note bottom of ViewOwn
+  User booking actions require login and ownership.
+  Admin actions require the admin role.
+  Additional requirements are outside this diagram.
+end note
+@enduml

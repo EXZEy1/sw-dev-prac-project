@@ -1,0 +1,77 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor<<Application>> #FFF1CB
+skinparam classBackgroundColor<<Resource>> #DDEEE5
+skinparam classBackgroundColor<<Representation>> #E9F1FA
+hide circle
+title Dentist Booking - REST UML Profile: Authentication (A)
+
+class DentistBookingAPI <<Application>> {
+  basePath = /api/v1
+}
+class Register <<Resource>> {
+  +<<POST>> register(): AuthResponse
+}
+class Login <<Resource>> {
+  +<<POST>> login(): AuthResponse
+}
+class CurrentUser <<Resource>> {
+  +<<GET>> getMe(): PublicUser
+}
+class Logout <<Resource>> {
+  +<<GET>> logout(): null
+}
+class RegistrationInput <<Representation>> {
+  name: string
+  tel: string
+  email: string
+  password: string
+}
+class LoginInput <<Representation>> {
+  email: string
+  password: string
+}
+class PublicUser <<Representation>> {
+  _id: ObjectId string
+  name: string
+  tel: string
+  email: string
+  role: user | admin
+}
+class AuthResponse <<Representation>> {
+  success: boolean
+  _id: ObjectId string
+  name: string
+  tel: string
+  email: string
+  role: user | admin
+  token: JWT string
+}
+
+DentistBookingAPI ..> Register : /auth/register\n<<Path>>
+DentistBookingAPI ..> Login : /auth/login\n<<Path>>
+DentistBookingAPI ..> CurrentUser : /auth/me\n<<Path>>
+DentistBookingAPI ..> Logout : /auth/logout\n<<Path>>
+Register ..> RegistrationInput : <<use>>
+Register ..> AuthResponse : <<use>>
+Login ..> LoginInput : <<use>>
+Login ..> AuthResponse : <<use>>
+CurrentUser ..> PublicUser : <<use>>
+
+note bottom of Register
+  Public registration creates the user role only.
+  Admin accounts are seeded.
+end note
+note bottom of CurrentUser
+  Bearer token is verified and the user is loaded from MongoDB.
+  Response envelope: { success, data: PublicUser }.
+end note
+note bottom of Logout
+  Client clears its token; the legacy cookie is cleared.
+  Stateless JWTs are not revoked on the server.
+end note
+@enduml
