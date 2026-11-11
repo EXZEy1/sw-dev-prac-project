@@ -18,6 +18,7 @@
     "check:p0": "npm test",
     "demo:p0": "node scripts/run-collection.js p0",
     "demo:user": "node scripts/run-collection.js user-core",
+    "demo:extra": "node scripts/run-collection.js questionnaire-qr",
     "demo:admin": "node scripts/run-collection.js admin-core",
     "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist"
   },

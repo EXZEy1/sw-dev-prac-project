@@ -11,6 +11,7 @@ const jsQR = require('jsqr');
 const { createMongo } = require('../scripts/mongo');
 const { connectDB, prepareIndexes } = require('../config/db');
 const { IDS, fixtureDates, seedFixtures } = require('../scripts/fixtures');
+const { exportBookingQr } = require('../scripts/export-booking-qr');
 const Appointment = require('../models/Appointment');
 const Questionnaire = require('../models/Questionnaire');
 const app = require('../server');
@@ -290,9 +291,10 @@ test('different bookings produce different QR references and cancelled bookings 
 
 async function runCollection(name) {
   const collection = JSON.parse(fs.readFileSync(path.resolve(__dirname, `../postman/${name}.collection.json`), 'utf8'));
-  const variables = { baseUrl: `${origin}/api/v1`, demoPassword: password };
+  const environment = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../postman/localhost.environment.example.json'), 'utf8'));
+  const variables = { baseUrl: `${origin}/api/v1`, demoPassword: password, extraAppointmentId: IDS.extraAppointment };
   return new Promise((resolve, reject) => {
-    newman.run({ collection, envVar: Object.entries(variables).map(([key, value]) => ({ key, value })), reporters: [], timeoutRequest: 5000 },
+    newman.run({ collection, environment, envVar: Object.entries(variables).map(([key, value]) => ({ key, value })), reporters: [], timeoutRequest: 5000 },
       (error, summary) => error ? reject(error) : resolve(summary));
   });
 }
@@ -302,5 +304,26 @@ test('the user core Newman collection passes twice with fresh users and runtime 
     const summary = await runCollection('user-core');
     assert.deepEqual(summary.run.failures.map((failure) => ({ name: failure.source.name, message: failure.error.message })), []);
     assert.equal(summary.run.stats.requests.total, 17);
+  }
+});
+
+test('the additional Newman collection proves response permissions and exports a readable QR from that run', async () => {
+  const summary = await runCollection('questionnaire-qr');
+  assert.deepEqual(summary.run.failures.map((failure) => ({ name: failure.source.name, message: failure.error.message })), []);
+  assert.equal(summary.run.stats.requests.total, 13);
+  const dataUrl = summary.environment.get('bookingQrDataUrl');
+  const reference = summary.environment.get('bookingQrReference');
+  assert.equal(reference, IDS.extraAppointment);
+  const outputDirectory = fs.mkdtempSync(path.resolve(__dirname, '../.local/qr-export-test-'));
+  let file;
+  try {
+    file = exportBookingQr(dataUrl, reference, outputDirectory);
+    assert.equal(decodeQr(`data:image/png;base64,${fs.readFileSync(file).toString('base64')}`), `DENTIST-BOOKING:${reference}`);
+    assert.throws(() => exportBookingQr('data:image/png;base64,aGVsbG8=', reference, outputDirectory), /not a PNG/);
+    assert.throws(() => exportBookingQr(dataUrl, '../invalid-reference', outputDirectory), /ObjectId/);
+    assert.equal(fs.readdirSync(outputDirectory).length, 1);
+  } finally {
+    if (file) fs.unlinkSync(file);
+    fs.rmdirSync(outputDirectory);
   }
 });

@@ -3,9 +3,10 @@ const path = require('node:path');
 const newman = require('newman');
 const { loadEnv } = require('../config/env');
 const { IDS, fixtureDates } = require('./fixtures');
+const { exportBookingQr } = require('./export-booking-qr');
 
 loadEnv();
-const names = new Set(['p0', 'user-core', 'admin-core', 'queue-waitlist']);
+const names = new Set(['p0', 'user-core', 'questionnaire-qr', 'admin-core', 'queue-waitlist']);
 const name = process.argv[2];
 if (!names.has(name)) throw new Error('Unknown collection.');
 if (!process.env.DEMO_PASSWORD) throw new Error('Run npm run setup:local first.');
@@ -26,5 +27,14 @@ newman.run({
   collection, environment, envVar: Object.entries(variables).map(([key, value]) => ({ key, value })),
   reporters: ['cli'], bail: true, timeoutRequest: 5000,
 }, (error, summary) => {
-  if (error || !summary || summary.run.failures.length) process.exitCode = 1;
+  if (error || !summary || summary.run.failures.length) { process.exitCode = 1; return; }
+  if (name === 'questionnaire-qr') {
+    try {
+      const file = exportBookingQr(summary.environment.get('bookingQrDataUrl'), summary.environment.get('bookingQrReference'));
+      console.log(`QR from this run: ${file}`);
+    } catch (exportError) {
+      console.error(exportError.message);
+      process.exitCode = 1;
+    }
+  }
 });
