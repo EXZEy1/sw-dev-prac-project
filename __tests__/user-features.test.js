@@ -7,6 +7,7 @@ const { createMongo } = require('../scripts/mongo');
 const { connectDB, prepareIndexes } = require('../config/db');
 const { IDS, fixtureDates, seedFixtures } = require('../scripts/fixtures');
 const Appointment = require('../models/Appointment');
+const Questionnaire = require('../models/Questionnaire');
 const app = require('../server');
 
 const password = randomBytes(16).toString('hex');
@@ -181,4 +182,64 @@ test('own booking endpoints validate IDs and require login before accessing a bo
     assert.equal((await request(method, '/appointments/not-an-id', body, userToken)).status, 400);
     assert.equal((await request(method, '/appointments/ffffffffffffffffffffffff', body, userToken)).status, 404);
   }
+});
+
+test('questionnaire responses belong to one booking, support replacement and allow owner/admin reads only', async () => {
+  const path = `/appointments/${IDS.extraAppointment}/questionnaire`;
+  const empty = await request('GET', path, undefined, userToken);
+  assert.equal(empty.status, 200);
+  assert.equal(empty.body.data, null);
+  const answers = { reasonForVisit: ' Tooth pain ', allergyInfo: 'Penicillin', notes: 'Prefer morning' };
+  const created = await request('PUT', path, answers, userToken);
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.appointment, IDS.extraAppointment);
+  assert.equal(created.body.data.reasonForVisit, answers.reasonForVisit.trim());
+  const ownerRead = await request('GET', path, undefined, userToken);
+  const adminRead = await request('GET', path, undefined, adminToken);
+  assert.equal(ownerRead.status, 200);
+  assert.deepEqual(adminRead.body, ownerRead.body);
+  assert.equal((await request('GET', path, undefined, otherUserToken)).status, 404);
+  assert.equal((await request('PUT', path, answers, otherUserToken)).status, 404);
+  assert.equal((await request('PUT', path, answers, adminToken)).status, 403);
+  assert.equal((await request('GET', path)).status, 401);
+  assert.equal((await request('PUT', path, answers)).status, 401);
+  const replaced = await request('PUT', path, { reasonForVisit: 'Routine checkup' }, userToken);
+  assert.equal(replaced.status, 200);
+  assert.equal(replaced.body.data._id, created.body.data._id);
+  assert.equal(replaced.body.data.allergyInfo, '');
+  assert.equal(replaced.body.data.notes, '');
+  assert.equal(await Questionnaire.countDocuments({ appointment: IDS.extraAppointment }), 1);
+  const detail = await request('GET', `/appointments/${IDS.extraAppointment}`, undefined, userToken);
+  assert.equal(detail.body.data.questionnaire, undefined);
+  const list = await request('GET', '/appointments', undefined, userToken);
+  assert.equal(list.body.data[0].questionnaire, undefined);
+});
+
+test('questionnaire input rejects invalid text, excessive lengths and appointment reassignment', async () => {
+  const path = `/appointments/${IDS.extraAppointment}/questionnaire`;
+  for (const body of [
+    {}, { reasonForVisit: ' ' }, { reasonForVisit: 123 }, { reasonForVisit: { $ne: null } },
+    { reasonForVisit: 'x'.repeat(501) }, { reasonForVisit: 'Checkup', allergyInfo: 'x'.repeat(1001) },
+    { reasonForVisit: 'Checkup', notes: null }, { reasonForVisit: 'Checkup', notes: 'x'.repeat(1001) },
+    { reasonForVisit: 'Checkup', appointment: IDS.queueAppointment },
+  ]) {
+    assert.equal((await request('PUT', path, body, userToken)).status, 400);
+  }
+  assert.equal((await request('GET', '/appointments/not-an-id/questionnaire', undefined, adminToken)).status, 400);
+  assert.equal((await request('GET', '/appointments/ffffffffffffffffffffffff/questionnaire', undefined, adminToken)).status, 404);
+  const unchanged = await request('GET', path, undefined, userToken);
+  assert.equal(unchanged.body.data.reasonForVisit, 'Routine checkup');
+});
+
+test('a cancelled booking hides its questionnaire and rejects further responses', async () => {
+  const user = await registerUser();
+  const created = await request('POST', '/appointments', { dentist: IDS.dentist, bookingDate: fixtureDates().bookingDate }, user.token);
+  const id = created.body.data._id;
+  const path = `/appointments/${id}/questionnaire`;
+  assert.equal((await request('PUT', path, { reasonForVisit: 'Checkup' }, user.token)).status, 201);
+  assert.equal((await request('DELETE', `/appointments/${id}`, undefined, user.token)).status, 200);
+  assert.equal((await request('GET', path, undefined, user.token)).status, 404);
+  assert.equal((await request('GET', path, undefined, adminToken)).status, 404);
+  assert.equal((await request('PUT', path, { reasonForVisit: 'Updated' }, user.token)).status, 404);
+  assert.equal(await Questionnaire.countDocuments({ appointment: id }), 1);
 });

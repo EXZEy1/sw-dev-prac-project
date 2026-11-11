@@ -7,7 +7,7 @@ async function connectDB(uri = process.env.MONGO_URI) {
 }
 
 async function prepareIndexes() {
-  const models = [require('../models/User'), require('../models/Dentist'), require('../models/Appointment')];
+  const models = [require('../models/User'), require('../models/Dentist'), require('../models/Appointment'), require('../models/Questionnaire')];
   await Promise.all(models.map((model) => model.init()));
 }
 
