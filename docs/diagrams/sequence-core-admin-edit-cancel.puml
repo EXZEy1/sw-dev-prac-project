@@ -66,7 +66,5 @@ Booking --> Controller : CancellationData { appointmentId, dentistId, bookingDat
 Controller --> Client : 200 { success: true, data: CancellationData }
 note right of Client
   The record is kept as cancelled, not deleted.
-  dentistId and bookingDate let the admin
-  check the waiting list for that dentist and date.
 end note
 @enduml
