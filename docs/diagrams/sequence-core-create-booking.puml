@@ -1,0 +1,53 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign center
+autonumber
+title Dentist Booking - Sequence: User creates a booking (Core #3)
+
+actor "Registered user\n(Postman)" as Client
+participant "server.js\n(Express app)" as App
+participant "routes/appointments.js" as Router
+participant "middleware/auth.js\nprotect + authorize('user')" as Auth
+participant "controllers/appointments.js\ncreateAppointment" as Controller
+participant "utils/booking.js" as Booking
+participant "models/User\nmodels/Dentist\nmodels/Appointment" as Model
+database "MongoDB" as DB
+
+Client -> App : POST /api/v1/appointments\nAuthorization: Bearer token\n{ dentist, bookingDate }
+App -> Router : route /api/v1/appointments
+Router -> Auth : protect
+Auth -> Auth : verify JWT
+Auth -> Model : User.findById(token.id)
+Model -> DB : find user
+DB --> Model : user (role from DB)
+Model --> Auth : user
+Auth -> Auth : authorize('user')
+Auth -> Controller : next() with req.user
+
+Controller -> Booking : validateBookingSelection(body)
+Booking -> Booking : allow only dentist, bookingDate;\ncheck ObjectId and date not before today (Thailand)
+Booking -> Model : Dentist.exists(dentist)
+Model -> DB : find dentist
+DB --> Model : found
+Booking --> Controller : selection
+
+Controller -> Model : Appointment.create({ ...selection, user: req.user.id })
+Model -> DB : insert appointment (status booked)
+
+alt user has no booked appointment
+  DB --> Model : inserted
+  Model --> Controller : appointment
+  Controller -> Booking : getAppointment(id)
+  Booking -> Model : findOne + populate user, dentist
+  Model -> DB : find appointment
+  DB --> Model : appointment
+  Booking --> Controller : AppointmentData
+  Controller --> Client : 201 { success: true, data: AppointmentData }
+else user already has a booked appointment
+  DB --> Model : duplicate key (partial unique index:\none booked appointment per user)
+  Model --> Controller : error 11000
+  Controller --> Client : 409 { success: false, code: BOOKING_LIMIT_REACHED }\n(via middleware/error.js)
+end
+@enduml

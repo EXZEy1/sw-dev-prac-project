@@ -1,0 +1,78 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor<<Application>> #FFF1CB
+skinparam classBackgroundColor<<Resource>> #DDEEE5
+skinparam classBackgroundColor<<Representation>> #E9F1FA
+hide circle
+title Dentist Booking - REST UML Profile: Admin Bookings (B)
+
+class DentistBookingAPI <<Application>> {
+  basePath = /api/v1
+}
+
+class AdminAppointments <<Resource>> {
+  +<<GET>> getAllAppointments(dentist?, bookingDate?, status?): AppointmentData[]
+}
+class AdminAppointment <<Resource>> {
+  +<<GET>> getAnyAppointment(): AppointmentData
+  +<<PATCH>> updateAnyAppointment(): AppointmentData
+  +<<DELETE>> cancelAnyAppointment(): CancellationData
+}
+
+class AppointmentChange <<Representation>> {
+  dentist?: ObjectId string
+  bookingDate?: YYYY-MM-DD
+}
+class AppointmentData <<Representation>> {
+  _id: ObjectId string
+  bookingReference: ObjectId string
+  user: UserSummary
+  dentist: DentistData
+  bookingDate: YYYY-MM-DD
+  status: booked | cancelled
+  cancelledAt: ISO timestamp | null
+  createdAt: ISO timestamp
+  updatedAt: ISO timestamp
+}
+class UserSummary <<Representation>> {
+  _id: ObjectId string
+  name: string
+  tel: string
+}
+class DentistData <<Representation>> {
+  _id: ObjectId string
+  name: string
+  yearsOfExperience: integer
+  expertise: string
+}
+class CancellationData <<Representation>> {
+  appointmentId: ObjectId string
+  dentistId: ObjectId string
+  bookingDate: YYYY-MM-DD
+  cancelledAt: ISO timestamp
+}
+
+DentistBookingAPI ..> AdminAppointments : /admin/appointments\n<<Path>>
+AdminAppointments ..> AdminAppointment : /{id}\n<<Path>>
+AdminAppointments ..> AppointmentData : <<use>>
+AdminAppointment ..> AppointmentData : <<use>>
+AdminAppointment ..> AppointmentChange : <<use>>
+AdminAppointment ..> CancellationData : <<use>>
+AppointmentData ..> UserSummary : <<use>>
+AppointmentData ..> DentistData : <<use>>
+
+note bottom of AdminAppointments
+  Login + admin role (read from the database) required.
+  Lists booked appointments by default;
+  status=cancelled lists cancellations.
+end note
+note bottom of AdminAppointment
+  Any user's booking; cancelled bookings are readable.
+  PATCH changes only dentist/bookingDate, never the owner.
+  DELETE stores cancellation; it does not remove the record.
+end note
+@enduml
