@@ -1,0 +1,479 @@
+{
+  "info": {
+    "name": "Dentist Booking - Questionnaire and QR",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Additional requirements #1 and #4. Uses the separate extra booking. Does not cancel it so the queue/waiting-list demo can run afterwards. Newman exports a PNG from this run after all assertions pass."
+  },
+  "item": [
+    {
+      "name": "Setup - extra booking owner login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{extraUserEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.environment.unset('bookingQrDataUrl'); pm.environment.unset('bookingQrReference');",
+              "if (pm.response.code === 200) pm.environment.set('extraUserToken', pm.response.json().token);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Setup - admin login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.environment.set('adminToken', pm.response.json().token);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Setup - another user login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{waiterAEmail}}\",\"password\":\"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.environment.set('waiterAToken', pm.response.json().token);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - owner completes questionnaire",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{extraUserToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+              "pm.test('Responses are linked to the booking', () => { const answer = pm.response.json().data; pm.expect(answer.appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - owner reads responses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{extraUserToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Owner sees saved answers', () => { const answer = pm.response.json().data; pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); pm.expect(answer.allergyInfo).to.equal('No known allergies'); pm.expect(answer.notes).to.equal('Demo responses only'); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - admin reads responses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Admin sees the correct booking responses', () => { const answer = pm.response.json().data; pm.expect(answer.appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - another user cannot read responses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - another user cannot change responses",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 1 - admin cannot change owner responses",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 4 - owner views booking with generated QR",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{extraUserToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const booking = pm.response.json().data;",
+              "pm.test('QR PNG is returned for this booking', () => { pm.expect(booking.bookingReference).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(booking.qrCodeDataUrl).to.match(/^data:image\\/png;base64,iVBORw0KGgo/); });",
+              "if (pm.response.code === 200) { pm.environment.set('bookingQrDataUrl', booking.qrCodeDataUrl); pm.environment.set('bookingQrReference', booking.bookingReference); }",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 4 - repeated view keeps the booking reference",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{extraUserToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Reference and QR remain stable', () => { const booking = pm.response.json().data; pm.expect(booking.bookingReference).to.equal(pm.environment.get('bookingQrReference')); pm.expect(booking.qrCodeDataUrl).to.equal(pm.environment.get('bookingQrDataUrl')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 4 - another user cannot access the booking QR",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra 4 - admin does not use owner booking detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

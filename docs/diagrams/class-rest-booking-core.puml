@@ -1,0 +1,84 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor<<Application>> #FFF1CB
+skinparam classBackgroundColor<<Resource>> #DDEEE5
+skinparam classBackgroundColor<<Representation>> #E9F1FA
+hide circle
+title Dentist Booking - REST UML Profile: Dentists and User Bookings (A)
+
+class DentistBookingAPI <<Application>> {
+  basePath = /api/v1
+}
+
+class Dentists <<Resource>> {
+  +<<GET>> getDentists(): DentistData[]
+}
+class Dentist <<Resource>> {
+  +<<GET>> getDentist(): DentistData
+}
+class Appointments <<Resource>> {
+  +<<GET>> getAppointments(): AppointmentData[]
+  +<<POST>> createAppointment(): AppointmentData
+}
+class Appointment <<Resource>> {
+  +<<GET>> getOwnAppointment(): AppointmentData
+  +<<PATCH>> updateOwnAppointment(): AppointmentData
+  +<<DELETE>> cancelOwnAppointment(): CancellationData
+}
+
+class DentistData <<Representation>> {
+  _id: ObjectId string
+  name: string
+  yearsOfExperience: integer
+  expertise: string
+}
+class UserSummary <<Representation>> {
+  _id: ObjectId string
+  name: string
+  tel: string
+}
+class AppointmentData <<Representation>> {
+  _id: ObjectId string
+  bookingReference: ObjectId string
+  user: UserSummary
+  dentist: DentistData
+  bookingDate: YYYY-MM-DD
+  status: booked | cancelled
+  cancelledAt: ISO timestamp | null
+  createdAt: ISO timestamp
+  updatedAt: ISO timestamp
+}
+class CancellationData <<Representation>> {
+  appointmentId: ObjectId string
+  dentistId: ObjectId string
+  bookingDate: YYYY-MM-DD
+  cancelledAt: ISO timestamp
+}
+
+DentistBookingAPI ..> Dentists : /dentists\n<<Path>>
+Dentists ..> Dentist : /{id}\n<<Path>>
+Dentists ..> DentistData : <<use>>
+Dentist ..> DentistData : <<use>>
+DentistBookingAPI ..> Appointments : /appointments\n<<Path>>
+Appointments ..> Appointment : /{id}\n<<Path>>
+Appointments ..> AppointmentData : <<use>>
+Appointment ..> AppointmentData : <<use>>
+Appointment ..> CancellationData : <<use>>
+AppointmentData ..> UserSummary : <<use>>
+AppointmentData ..> DentistData : <<use>>
+
+note bottom of Appointments
+  Login + user role required.
+  The owner comes from the verified token.
+  A partial unique index enforces one booked appointment.
+end note
+note bottom of Appointment
+  Ownership is checked before reading or changing a booking.
+  DELETE stores cancellation; it does not remove the record.
+  Core representations shown; additional QR is omitted.
+end note
+@enduml

@@ -1,7 +1,12 @@
 const router = require('express').Router();
 const { protect, authorize } = require('../middleware/auth');
-const { pending } = require('../controllers/pending');
-router.use(protect, authorize('user'));
-router.route('/').get(pending('Own booking list - A/P1')).post(pending('Create booking - A/P1'));
-router.route('/:id').get(pending('Own booking detail - A/P1')).patch(pending('Own booking edit - A/P1')).delete(pending('Own booking cancellation - A/P1'));
+const { getAppointments, createAppointment, getOwnAppointment, updateOwnAppointment, cancelOwnAppointment } = require('../controllers/appointments');
+const { getQuestionnaire, putQuestionnaire } = require('../controllers/questionnaire');
+router.use(protect);
+router.route('/:id/questionnaire')
+  .get(authorize('user', 'admin'), getQuestionnaire)
+  .put(authorize('user'), putQuestionnaire);
+router.use(authorize('user'));
+router.route('/').get(getAppointments).post(createAppointment);
+router.route('/:id').get(getOwnAppointment).patch(updateOwnAppointment).delete(cancelOwnAppointment);
 module.exports = router;

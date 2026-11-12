@@ -5,16 +5,20 @@
   "description": "Dentist Booking P0 shared starter, adapted from Assignment 7",
   "type": "commonjs",
   "main": "server.js",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "setup:local": "node scripts/setup-local.js",
     "db:demo": "node scripts/demo-db.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test --test-concurrency=1 __tests__/p0.test.js",
+    "test": "node --test --test-concurrency=1 __tests__/p0.test.js __tests__/user-features.test.js",
     "check:p0": "npm test",
     "demo:p0": "node scripts/run-collection.js p0",
+    "demo:user": "node scripts/run-collection.js user-core",
+    "demo:extra": "node scripts/run-collection.js questionnaire-qr",
     "demo:admin": "node scripts/run-collection.js admin-core",
     "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist"
   },
@@ -23,10 +27,13 @@
     "dotenv": "18.0.5",
     "express": "5.2.1",
     "jsonwebtoken": "9.0.3",
-    "mongoose": "9.11.0"
+    "mongoose": "9.11.0",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
+    "jsqr": "1.4.0",
     "mongodb-memory-server": "11.3.0",
-    "newman": "6.2.1"
+    "newman": "6.2.1",
+    "pngjs": "7.0.0"
   }
 }

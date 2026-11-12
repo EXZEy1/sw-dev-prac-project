@@ -1,12 +1,12 @@
 {
   "info": {
-    "name": "Dentist Booking - B queue and waiting list TODO",
+    "name": "Dentist Booking - Additional 2-3 Queue and Waiting List",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "B owns this collection. Expected 201/200 responses deliberately fail on P0 placeholders. Run after A questionnaire/QR demo and after a fresh seed."
+    "description": "B: arrival queue and waiting list. Run after a fresh seed:demo and after the questionnaire/QR demo."
   },
   "item": [
     {
-      "name": "Extra Admin login",
+      "name": "Q0 Admin login",
       "request": {
         "method": "POST",
         "header": [
@@ -36,17 +36,108 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "if (pm.response.code === 200) pm.environment.set('adminToken', pm.response.json().token);",
-              "pm.test('Token returned at top level', () => pm.expect(pm.response.json().token).to.be.a('string'));",
-              "pm.test('Password omitted', () => pm.expect(pm.response.json()).not.to.have.property('password')); "
+              "const data = pm.response.json();",
+              "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+              "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+              "if (pm.response.code === 200) pm.environment.set('adminToken', data.token);",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Queue arrive first booked user",
+      "name": "Q0 Booking owner login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{extraUserEmail}}\", \"password\": \"{{demoPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json();",
+              "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+              "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+              "if (pm.response.code === 200) pm.environment.set('extraUserToken', data.token);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q1 Normal user cannot mark arrival",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{extraUserToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"appointmentId\": \"{{extraAppointmentId}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "pm.test('Error code FORBIDDEN', () => pm.expect(pm.response.json().code).to.equal('FORBIDDEN'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q1 Arrive first booked user",
       "request": {
         "method": "POST",
         "header": [
@@ -81,15 +172,20 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "if (pm.response.code < 300) pm.environment.set('queueEntryId', pm.response.json().data._id);"
+              "const data = pm.response.json().data;",
+              "pm.test('Entry starts waiting', () => { pm.expect(data.status).to.equal('waiting'); pm.expect(data.appointment).to.equal(pm.environment.get('extraAppointmentId')); });",
+              "pm.test('Server recorded arrival time', () => pm.expect(Date.parse(data.arrivedAt)).to.be.a('number').and.not.NaN);",
+              "if (pm.response.code === 201) { pm.environment.set('queueEntryId', data._id); pm.environment.set('firstArrivedAt', data.arrivedAt); }",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Queue arrive second booked user",
+      "name": "Q1 Arrive second booked user",
       "request": {
         "method": "POST",
         "header": [
@@ -124,14 +220,141 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+              "(() => {",
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const data = pm.response.json().data;",
+              "pm.test('Second entry waiting', () => pm.expect(data.status).to.equal('waiting'));",
+              "if (pm.response.code === 201) pm.environment.set('secondQueueEntryId', data._id);",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Queue view arrival order",
+      "name": "Q1 Repeat arrival keeps the original order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"appointmentId\": \"{{extraAppointmentId}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('Same entry and arrival time', () => { pm.expect(data._id).to.equal(pm.environment.get('queueEntryId')); pm.expect(data.arrivedAt).to.equal(pm.environment.get('firstArrivedAt')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q1 Cancelled booking cannot arrive",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"appointmentId\": \"{{cancelledAppointmentId}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Error code APPOINTMENT_CANCELLED', () => pm.expect(pm.response.json().code).to.equal('APPOINTMENT_CANCELLED'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q2 Queue requires dentist and date",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q2 View arrival order",
       "request": {
         "method": "GET",
         "header": [
@@ -152,15 +375,64 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('First arrival retained', () => pm.expect(pm.response.json().data[0].appointment).to.equal(pm.environment.get('extraAppointmentId'))); "
+              "const rows = pm.response.json().data;",
+              "pm.test('Two arrivals in order', () => { pm.expect(rows.length).to.equal(2); pm.expect(rows[0].appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(rows[1].appointment).to.equal(pm.environment.get('queueAppointmentId')); });",
+              "pm.test('Sorted by arrival time', () => pm.expect(Date.parse(rows[0].arrivedAt)).to.be.at.most(Date.parse(rows[1].arrivedAt)));",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Queue call first user",
+      "name": "Q3 Cannot skip waiting to completed",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues/{{secondQueueEntryId}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\": \"completed\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Error code INVALID_QUEUE_TRANSITION', () => pm.expect(pm.response.json().code).to.equal('INVALID_QUEUE_TRANSITION'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q3 Call first user",
       "request": {
         "method": "PATCH",
         "header": [
@@ -195,14 +467,62 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Status called', () => pm.expect(pm.response.json().data.status).to.equal('called'));",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Queue complete first user",
+      "name": "Q3 Repeat call changes nothing",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\": \"called\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Still called', () => pm.expect(pm.response.json().data.status).to.equal('called'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Q3 Complete first user",
       "request": {
         "method": "PATCH",
         "header": [
@@ -237,14 +557,62 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Status completed', () => pm.expect(pm.response.json().data.status).to.equal('completed'));",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Waiting user A login",
+      "name": "Q3 Cannot move back to waiting",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\": \"waiting\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Error code INVALID_QUEUE_TRANSITION', () => pm.expect(pm.response.json().code).to.equal('INVALID_QUEUE_TRANSITION'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W0 Waiting user A login",
       "request": {
         "method": "POST",
         "header": [
@@ -274,17 +642,20 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "if (pm.response.code === 200) pm.environment.set('waiterAToken', pm.response.json().token);",
-              "pm.test('Token returned at top level', () => pm.expect(pm.response.json().token).to.be.a('string'));",
-              "pm.test('Password omitted', () => pm.expect(pm.response.json()).not.to.have.property('password')); "
+              "const data = pm.response.json();",
+              "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+              "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+              "if (pm.response.code === 200) pm.environment.set('waiterAToken', data.token);",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Waiting user A join",
+      "name": "W1 Waiting user A join",
       "request": {
         "method": "POST",
         "header": [
@@ -319,15 +690,64 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "if (pm.response.code < 300) pm.environment.set('waitlistEntryId', pm.response.json().data._id);"
+              "const data = pm.response.json().data;",
+              "pm.test('Entry for dentist and date', () => { pm.expect(data.dentist).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('extraBookingDate')); });",
+              "if (pm.response.code === 201) { pm.environment.set('waitlistEntryId', data._id); pm.environment.set('waiterAId', data.user); }",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Waiting user B login",
+      "name": "W1 Waiting user A cannot join twice",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Error code ALREADY_ON_WAITING_LIST', () => pm.expect(pm.response.json().code).to.equal('ALREADY_ON_WAITING_LIST'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W0 Waiting user B login",
       "request": {
         "method": "POST",
         "header": [
@@ -357,17 +777,20 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "if (pm.response.code === 200) pm.environment.set('waiterBToken', pm.response.json().token);",
-              "pm.test('Token returned at top level', () => pm.expect(pm.response.json().token).to.be.a('string'));",
-              "pm.test('Password omitted', () => pm.expect(pm.response.json()).not.to.have.property('password')); "
+              "const data = pm.response.json();",
+              "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+              "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+              "if (pm.response.code === 200) pm.environment.set('waiterBToken', data.token);",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Waiting user B join",
+      "name": "W1 Waiting user B join",
       "request": {
         "method": "POST",
         "header": [
@@ -402,14 +825,80 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+              "(() => {",
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) pm.environment.set('waitlistEntryBId', pm.response.json().data._id);",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Cancel booking to inspect waiting list",
+      "name": "W2 User sees only their own entries",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const rows = pm.response.json().data;",
+              "pm.test('Only waiter A entries', () => { pm.expect(rows.length).to.equal(1); rows.forEach((row) => pm.expect(row.user).to.equal(pm.environment.get('waiterAId'))); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W2 Admin must choose dentist and date",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W3 Admin cancels a booking",
       "request": {
         "method": "DELETE",
         "header": [
@@ -430,14 +919,18 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "if (pm.response.code === 200) { pm.environment.set('cancelledDentistId', data.dentistId); pm.environment.set('cancelledBookingDate', data.bookingDate); }",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Admin view waiting registration order",
+      "name": "W3 Cancelled booking leaves the arrival queue",
       "request": {
         "method": "GET",
         "header": [
@@ -447,7 +940,7 @@
             "type": "text"
           }
         ],
-        "url": "{{baseUrl}}/waiting-list?dentist={{dentistId}}&bookingDate={{extraBookingDate}}",
+        "url": "{{baseUrl}}/queues?dentist={{dentistId}}&bookingDate={{extraBookingDate}}",
         "auth": {
           "type": "noauth"
         }
@@ -458,15 +951,80 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('Two waiters in registration order', () => { const rows=pm.response.json().data; pm.expect(rows.length).to.equal(2); pm.expect(rows[0]._id).to.equal(pm.environment.get('waitlistEntryId')); });"
+              "pm.test('Only the remaining booking is queued', () => { const rows = pm.response.json().data; pm.expect(rows.length).to.equal(1); pm.expect(rows[0].appointment).to.equal(pm.environment.get('queueAppointmentId')); });",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Waiting user A leave",
+      "name": "W3 Admin view waiting registration order",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const rows = pm.response.json().data;",
+              "pm.test('Two waiters in registration order', () => { pm.expect(rows.length).to.equal(2); pm.expect(rows[0]._id).to.equal(pm.environment.get('waitlistEntryId')); pm.expect(rows[1]._id).to.equal(pm.environment.get('waitlistEntryBId')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W4 Another user cannot remove the entry",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterBToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list/{{waitlistEntryId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Error code NOT_FOUND', () => pm.expect(pm.response.json().code).to.equal('NOT_FOUND'));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W4 Waiting user A leave",
       "request": {
         "method": "DELETE",
         "header": [
@@ -487,14 +1045,16 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "})();"
             ]
           }
         }
       ]
     },
     {
-      "name": "Admin verify remaining waiter",
+      "name": "W4 Admin verify remaining waiter",
       "request": {
         "method": "GET",
         "header": [
@@ -504,7 +1064,7 @@
             "type": "text"
           }
         ],
-        "url": "{{baseUrl}}/waiting-list?dentist={{dentistId}}&bookingDate={{extraBookingDate}}",
+        "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
         "auth": {
           "type": "noauth"
         }
@@ -515,8 +1075,86 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "(() => {",
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('One waiter remains', () => pm.expect(pm.response.json().count).to.equal(1)); "
+              "pm.test('One waiter remains', () => { const body = pm.response.json(); pm.expect(body.count).to.equal(1); pm.expect(body.data[0]._id).to.equal(pm.environment.get('waitlistEntryBId')); });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W5 Waiting user A rejoins",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{waiterAToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) pm.environment.set('waitlistEntryId', pm.response.json().data._id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "W5 Rejoined user goes to the end",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Waiter B first, waiter A last', () => { const rows = pm.response.json().data; pm.expect(rows.map((row) => row._id)).to.deep.equal([pm.environment.get('waitlistEntryBId'), pm.environment.get('waitlistEntryId')]); });",
+              "})();"
             ]
           }
         }

@@ -3,9 +3,13 @@ const { loadEnv, validateEnv } = require('../config/env');
 const { connectDB, prepareIndexes } = require('../config/db');
 const { seedFixtures, validateDemoPassword } = require('./fixtures');
 
+function isAllowedDemoHost(host) {
+  return ['127.0.0.1', 'localhost', '::1'].includes(host) || /^[a-z\d.-]+\.mongodb\.net$/i.test(host || '');
+}
+
 function assertDemoDatabase(connection) {
-  if (process.env.NODE_ENV === 'production' || connection.name !== 'dentist_booking_demo' || !['127.0.0.1', 'localhost', '::1'].includes(connection.host)) {
-    throw new Error('Refusing reset: only the local dentist_booking_demo database is allowed.');
+  if (process.env.NODE_ENV === 'production' || connection.name !== 'dentist_booking_demo' || !isAllowedDemoHost(connection.host)) {
+    throw new Error('Refusing reset: only the dentist_booking_demo database on localhost or MongoDB Atlas is allowed.');
   }
 }
 

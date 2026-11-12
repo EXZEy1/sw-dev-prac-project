@@ -1,0 +1,72 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign center
+autonumber
+title Dentist Booking - Sequence: Admin edits and cancels any booking (Core #8, #9)
+
+actor "Admin\n(Postman)" as Client
+participant "server.js\n(Express app)" as App
+participant "routes/adminAppointments.js" as Router
+participant "middleware/auth.js\nprotect + authorize('admin')" as Auth
+participant "controllers/adminAppointments.js" as Controller
+participant "utils/booking.js" as Booking
+participant "models/User\nmodels/Dentist\nmodels/Appointment" as Model
+database "MongoDB" as DB
+
+group Every admin request
+  Client -> App : /api/v1/admin/appointments/:id\nAuthorization: Bearer token
+  App -> Router : route /api/v1/admin/appointments
+  Router -> Auth : protect
+  Auth -> Model : User.findById(token.id)
+  Model -> DB : find user
+  DB --> Model : user
+  alt role in DB is admin
+    Auth -> Controller : next() with req.user
+  else role is user
+    Auth --> Client : 403 { code: FORBIDDEN }
+  end
+end
+
+== Core #8: PATCH /admin/appointments/:id { dentist, bookingDate } ==
+Controller -> Booking : updateAppointment(id, body)
+Booking -> Booking : allow only dentist, bookingDate\n(user and status cannot be changed)
+Booking -> Model : Appointment.findById(id)
+Model -> DB : find appointment
+DB --> Model : appointment
+alt appointment not found
+  Booking --> Client : 404 { code: NOT_FOUND }
+else appointment is cancelled
+  Booking --> Client : 409 { code: APPOINTMENT_CANCELLED }
+else appointment is booked
+  Booking -> Model : Dentist.exists(dentist)
+  Model -> DB : find dentist
+  DB --> Model : found
+  Booking -> Model : findOneAndUpdate({ _id, status: booked }, $set changes)
+  Model -> DB : update dentist / bookingDate
+  DB --> Model : updated appointment (owner unchanged)
+  Booking --> Controller : AppointmentData
+  Controller --> Client : 200 { success: true, data: AppointmentData }
+end
+
+== Core #9: DELETE /admin/appointments/:id ==
+Controller -> Booking : cancelAppointment(id)
+Booking -> Model : findOneAndUpdate({ _id, status: booked },\n$set status cancelled, cancelledAt now)
+Model -> DB : update appointment
+alt was booked
+  DB --> Model : cancelled appointment
+else already cancelled
+  DB --> Model : no match
+  Booking -> Model : Appointment.findById(id)
+  Model -> DB : find appointment
+  DB --> Model : appointment with original cancelledAt
+end
+Booking --> Controller : CancellationData { appointmentId, dentistId, bookingDate, cancelledAt }
+Controller --> Client : 200 { success: true, data: CancellationData }
+note right of Client
+  The record is kept as cancelled, not deleted.
+  dentistId and bookingDate let the admin
+  check the waiting list for that dentist and date.
+end note
+@enduml
