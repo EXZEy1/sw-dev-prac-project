@@ -4,11 +4,15 @@ const newman = require('newman');
 const { loadEnv } = require('../config/env');
 const { IDS, fixtureDates } = require('./fixtures');
 const { exportBookingQr } = require('./export-booking-qr');
+const { CORE_FOLDERS, EXTRA_FOLDERS } = require('./build-collection');
 
 loadEnv();
-const names = new Set(['p0', 'user-core', 'questionnaire-qr', 'admin-core', 'queue-waitlist']);
+const names = new Set(['p0', 'user-core', 'questionnaire-qr', 'admin-core', 'queue-waitlist', 'dentist-booking']);
 const name = process.argv[2];
+const scope = process.argv[3];
 if (!names.has(name)) throw new Error('Unknown collection.');
+if (scope && (name !== 'dentist-booking' || !['core', 'extras'].includes(scope))) throw new Error('Scope must be core or extras for the combined collection.');
+const folder = scope === 'core' ? CORE_FOLDERS : scope === 'extras' ? EXTRA_FOLDERS : undefined;
 if (!process.env.DEMO_PASSWORD) throw new Error('Run npm run setup:local first.');
 const postman = path.resolve(__dirname, '../postman');
 const collection = JSON.parse(fs.readFileSync(path.join(postman, `${name}.collection.json`), 'utf8'));
@@ -23,11 +27,11 @@ const variables = {
   queueAppointmentId: IDS.queueAppointment, cancelledAppointmentId: IDS.cancelledAppointment,
 };
 newman.run({
-  collection, environment, envVar: Object.entries(variables).map(([key, value]) => ({ key, value })),
+  collection, environment, ...(folder && { folder }), envVar: Object.entries(variables).map(([key, value]) => ({ key, value })),
   reporters: ['cli'], bail: true, timeoutRequest: 5000,
 }, (error, summary) => {
   if (error || !summary || summary.run.failures.length) { process.exitCode = 1; return; }
-  if (name === 'questionnaire-qr') {
+  if (name === 'questionnaire-qr' || (name === 'dentist-booking' && scope !== 'core')) {
     try {
       const file = exportBookingQr(summary.environment.get('bookingQrDataUrl'), summary.environment.get('bookingQrReference'));
       console.log(`QR from this run: ${file}`);

@@ -1,0 +1,3294 @@
+{
+  "info": {
+    "name": "Dentist Booking - Team Presentation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Seed the demo database before each full run. Run the Core folders, pause for Class/Sequence slides, then run the Extra folders. Setup checks readiness and roles. Credentials come from the local environment. The queue/waiting-list demo cancels a booking; reset before repeating."
+  },
+  "item": [
+    {
+      "name": "00 Setup",
+      "description": "Checks auth, database readiness and route role guards after the A+B integration. Admin access must return 200. Use admin-core and queue-waitlist collections to verify all B features.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
+              "const plus = n => { const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };",
+              "pm.environment.set('bookingDate', plus(7));",
+              "pm.environment.set('changedBookingDate', plus(8));",
+              "pm.environment.set('extraBookingDate', today);"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "P0 Health and database readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{serverUrl}}/health",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('P0 database ready', () => pm.expect(pm.response.json().database).to.equal('ready')); "
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 Admin login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{adminEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.environment.set('adminToken', pm.response.json().token);",
+                  "pm.test('Token returned at top level', () => pm.expect(pm.response.json().token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(pm.response.json()).not.to.have.property('password')); "
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 Admin identity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Admin role from database', () => pm.expect(pm.response.json().data.role).to.equal('admin')); "
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 User login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{extraUserEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.environment.set('userToken', pm.response.json().token);",
+                  "pm.test('Token returned at top level', () => pm.expect(pm.response.json().token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(pm.response.json()).not.to.have.property('password')); "
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 User identity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Registered user and telephone', () => { const u=pm.response.json().data; pm.expect(u.role).to.equal('user'); pm.expect(u.tel).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 User denied admin route",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 Admin role guard - feature demo is separate",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin passes the role guard', () => pm.response.to.have.status(200));",
+                  "pm.test('Implemented admin list response', () => { pm.expect(pm.response.json().success).to.equal(true); pm.expect(pm.response.json().data).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 Logout and clear client token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/logout",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.unset('userToken');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P0 Anonymous request denied after logout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01-08 User Core",
+      "description": "Core requirements 1-6 in presentation order. Creates a fresh user each run, enforces one booking and cancels it before logout. Credentials come from the local environment.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(() => {",
+              "if (pm.info.requestName === '01 Register - validation requires telephone') {",
+              "  pm.environment.set('userEmail', 'runner-' + pm.variables.replaceIn('{{$guid}}') + '@example.test');",
+              "  ['userToken', 'userId', 'appointmentId', 'cancelledAt'].forEach(key => pm.environment.unset(key));",
+              "  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
+              "  const date = new Date(today + 'T12:00:00.000Z');",
+              "  date.setUTCDate(date.getUTCDate() + 7); pm.environment.set('bookingDate', date.toISOString().slice(0, 10));",
+              "  date.setUTCDate(date.getUTCDate() + 1); pm.environment.set('changedBookingDate', date.toISOString().slice(0, 10));",
+              "}",
+              "})();"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "01 Register - validation requires telephone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Runner User\",\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Telephone validation', () => pm.expect(pm.response.json().message).to.include('tel'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "01 Register - create a new user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Runner User\",\"tel\":\"0812345678\",\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.test('User registered with telephone', () => { pm.expect(data.role).to.equal('user'); pm.expect(data.tel).to.equal('0812345678'); });",
+                  "pm.test('Password is private', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 201) pm.environment.set('userId', data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 User login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{userEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Correct user and token', () => { pm.expect(data._id).to.equal(pm.environment.get('userId')); pm.expect(data.token).to.be.a('string'); });",
+                  "if (pm.response.code === 200) pm.environment.set('userToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 View dentist list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/dentists",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Dentist information is available', () => { pm.expect(data.length).to.be.above(0); data.forEach(d => { pm.expect(d.name).to.be.a('string'); pm.expect(d.yearsOfExperience).to.be.a('number'); pm.expect(d.expertise).to.be.a('string'); }); });",
+                  "if (data && data.length) { pm.environment.set('dentistId', data[0]._id); pm.environment.set('secondDentistId', (data[1] || data[0])._id); }",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 View dentist detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/dentists/{{dentistId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Selected dentist', () => pm.expect(pm.response.json().data._id).to.equal(pm.environment.get('dentistId')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Create own booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\":\"{{dentistId}}\",\"bookingDate\":\"{{bookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Booking belongs to the registered user', () => { pm.expect(data.user._id).to.equal(pm.environment.get('userId')); pm.expect(data.dentist._id).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('bookingDate')); });",
+                  "if (pm.response.code === 201) pm.environment.set('appointmentId', data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Reject a second booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\":\"{{secondDentistId}}\",\"bookingDate\":\"{{changedBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('One-booking quota', () => pm.expect(pm.response.json().code).to.equal('BOOKING_LIMIT_REACHED'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 View own booking list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Exactly one own booking', () => { const body = pm.response.json(); pm.expect(body.count).to.equal(1); pm.expect(body.data[0]._id).to.equal(pm.environment.get('appointmentId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 View own booking detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Own booking reference', () => { const data = pm.response.json().data; pm.expect(data.bookingReference).to.equal(pm.environment.get('appointmentId')); pm.expect(data.user._id).to.equal(pm.environment.get('userId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 Edit own booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\":\"{{secondDentistId}}\",\"bookingDate\":\"{{changedBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Booking changed', () => { const data = pm.response.json().data; pm.expect(data.dentist._id).to.equal(pm.environment.get('secondDentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); pm.expect(data.user._id).to.equal(pm.environment.get('userId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 Verify saved changes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Changes persisted', () => { const data = pm.response.json().data; pm.expect(data.dentist._id).to.equal(pm.environment.get('secondDentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Delete own booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Cancellation saved', () => { pm.expect(data.appointmentId).to.equal(pm.environment.get('appointmentId')); pm.expect(data.cancelledAt).to.be.a('string'); });",
+                  "if (pm.response.code === 200) pm.environment.set('cancelledAt', data.cancelledAt);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Repeated cancellation keeps the same timestamp",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cancellation is idempotent', () => pm.expect(pm.response.json().data.cancelledAt).to.equal(pm.environment.get('cancelledAt')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Verify empty own booking list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No current booking', () => { pm.expect(pm.response.json().count).to.equal(0); pm.expect(pm.response.json().data).to.deep.equal([]); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Cancelled booking is hidden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{appointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 User logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/logout",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Logout completed', () => pm.expect(pm.response.json().data).to.equal(null));",
+                  "pm.environment.unset('userToken');",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 Access without client token is denied",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09-12 Admin Core",
+      "description": "B: admin views, edits and cancels any booking. Run after a fresh seed:demo.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
+              "const plus = n => { const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };",
+              "pm.environment.set('bookingDate', plus(7));",
+              "pm.environment.set('changedBookingDate', plus(8));",
+              "pm.environment.set('extraBookingDate', today);"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "09 Admin login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{adminEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('adminToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Admin role confirmed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Role is admin', () => pm.expect(data.role).to.equal('admin'));",
+                  "if (pm.response.code === 200) pm.environment.set('adminId', data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Booking owner login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{extraUserEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('extraUserToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Normal user cannot view all bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Error code FORBIDDEN', () => pm.expect(pm.response.json().code).to.equal('FORBIDDEN'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Missing token is rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Admin view any bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Count matches data', () => pm.expect(body.count).to.equal(body.data.length));",
+                  "pm.test('Only booked appointments by default', () => body.data.forEach((row) => pm.expect(row.status).to.equal('booked')));",
+                  "pm.test('Includes bookings of other users', () => pm.expect(body.data.map((row) => row._id)).to.include(pm.environment.get('adminAppointmentId')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Admin filter bookings by dentist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments?dentist={{secondDentistId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Every row matches the dentist', () => { pm.expect(rows.length).to.be.above(0); rows.forEach((row) => pm.expect(row.dentist._id).to.equal(pm.environment.get('secondDentistId'))); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Admin view cancelled bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments?status=cancelled",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Includes the seeded cancellation', () => pm.expect(rows.map((row) => row._id)).to.include(pm.environment.get('cancelledAppointmentId')));",
+                  "pm.test('Only cancelled rows', () => rows.forEach((row) => pm.expect(row.status).to.equal('cancelled')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Invalid filter is rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments?bookingDate=2026-02-30",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Admin view target booking",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Target booking returned', () => pm.expect(data._id).to.equal(pm.environment.get('adminAppointmentId')));",
+                  "pm.test('Owned by another user', () => pm.expect(data.user._id).to.not.equal(pm.environment.get('adminId')));",
+                  "if (pm.response.code === 200) pm.environment.set('adminSubjectId', data.user._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Malformed booking ID is rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/not-an-id",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code INVALID_ID', () => pm.expect(pm.response.json().code).to.equal('INVALID_ID'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Unknown booking is not found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/ffffffffffffffffffffffff",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code NOT_FOUND', () => pm.expect(pm.response.json().code).to.equal('NOT_FOUND'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Admin cannot change the owner",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{adminSubjectId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Admin edit target booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{changedBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Dentist and date updated', () => { pm.expect(data.dentist._id).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); });",
+                  "pm.test('Owner unchanged', () => pm.expect(data.user._id).to.equal(pm.environment.get('adminSubjectId')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Verify booking change",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Date updated', () => pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')));",
+                  "pm.test('Dentist updated', () => pm.expect(data.dentist._id).to.equal(pm.environment.get('dentistId')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Admin cancel target booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Cancellation payload', () => { pm.expect(data.appointmentId).to.equal(pm.environment.get('adminAppointmentId')); pm.expect(data.dentistId).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('changedBookingDate')); pm.expect(Date.parse(data.cancelledAt)).to.be.a('number').and.not.NaN; });",
+                  "if (pm.response.code === 200) pm.environment.set('adminCancelledAt', data.cancelledAt);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Repeat cancellation keeps the first time",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('cancelledAt unchanged', () => pm.expect(pm.response.json().data.cancelledAt).to.equal(pm.environment.get('adminCancelledAt')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Verify cancellation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cancelled', () => pm.expect(pm.response.json().data.status).to.equal('cancelled'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Cancelled booking leaves the current list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Not listed as booked', () => pm.expect(pm.response.json().data.map((row) => row._id)).to.not.include(pm.environment.get('adminAppointmentId')));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Cancelled booking cannot be edited",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{adminAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"bookingDate\": \"{{bookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code APPOINTMENT_CANCELLED', () => pm.expect(pm.response.json().code).to.equal('APPOINTMENT_CANCELLED'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "15 Extra - Questionnaire and QR",
+      "description": "Additional requirements #1 and #4. Uses the separate extra booking. Does not cancel it so the queue/waiting-list demo can run afterwards. Newman exports a PNG from this run after all assertions pass.",
+      "item": [
+        {
+          "name": "Setup - extra booking owner login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{extraUserEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.unset('bookingQrDataUrl'); pm.environment.unset('bookingQrReference');",
+                  "if (pm.response.code === 200) pm.environment.set('extraUserToken', pm.response.json().token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup - admin login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.environment.set('adminToken', pm.response.json().token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup - another user login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{waiterAEmail}}\",\"password\":\"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.environment.set('waiterAToken', pm.response.json().token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - owner completes questionnaire",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "pm.test('Responses are linked to the booking', () => { const answer = pm.response.json().data; pm.expect(answer.appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - owner reads responses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Owner sees saved answers', () => { const answer = pm.response.json().data; pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); pm.expect(answer.allergyInfo).to.equal('No known allergies'); pm.expect(answer.notes).to.equal('Demo responses only'); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - admin reads responses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Admin sees the correct booking responses', () => { const answer = pm.response.json().data; pm.expect(answer.appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(answer.reasonForVisit).to.equal('Tooth pain'); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - another user cannot read responses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - another user cannot change responses",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 1 - admin cannot change owner responses",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}/questionnaire",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"reasonForVisit\":\"Tooth pain\",\"allergyInfo\":\"No known allergies\",\"notes\":\"Demo responses only\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 4 - owner views booking with generated QR",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const booking = pm.response.json().data;",
+                  "pm.test('QR PNG is returned for this booking', () => { pm.expect(booking.bookingReference).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(booking.qrCodeDataUrl).to.match(/^data:image\\/png;base64,iVBORw0KGgo/); });",
+                  "if (pm.response.code === 200) { pm.environment.set('bookingQrDataUrl', booking.qrCodeDataUrl); pm.environment.set('bookingQrReference', booking.bookingReference); }",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 4 - repeated view keeps the booking reference",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Reference and QR remain stable', () => { const booking = pm.response.json().data; pm.expect(booking.bookingReference).to.equal(pm.environment.get('bookingQrReference')); pm.expect(booking.qrCodeDataUrl).to.equal(pm.environment.get('bookingQrDataUrl')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 4 - another user cannot access the booking QR",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra 4 - admin does not use owner booking detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/appointments/{{extraAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "15 Extra - Queue and Waiting List",
+      "description": "B: arrival queue and waiting list. Run after a fresh seed:demo and after the questionnaire/QR demo.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
+              "const plus = n => { const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };",
+              "pm.environment.set('bookingDate', plus(7));",
+              "pm.environment.set('changedBookingDate', plus(8));",
+              "pm.environment.set('extraBookingDate', today);"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Q0 Admin login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{adminEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('adminToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q0 Booking owner login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{extraUserEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('extraUserToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q1 Normal user cannot mark arrival",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{extraUserToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentId\": \"{{extraAppointmentId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Error code FORBIDDEN', () => pm.expect(pm.response.json().code).to.equal('FORBIDDEN'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q1 Arrive first booked user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentId\": \"{{extraAppointmentId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Entry starts waiting', () => { pm.expect(data.status).to.equal('waiting'); pm.expect(data.appointment).to.equal(pm.environment.get('extraAppointmentId')); });",
+                  "pm.test('Server recorded arrival time', () => pm.expect(Date.parse(data.arrivedAt)).to.be.a('number').and.not.NaN);",
+                  "if (pm.response.code === 201) { pm.environment.set('queueEntryId', data._id); pm.environment.set('firstArrivedAt', data.arrivedAt); }",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q1 Arrive second booked user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentId\": \"{{queueAppointmentId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Second entry waiting', () => pm.expect(data.status).to.equal('waiting'));",
+                  "if (pm.response.code === 201) pm.environment.set('secondQueueEntryId', data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q1 Repeat arrival keeps the original order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentId\": \"{{extraAppointmentId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Same entry and arrival time', () => { pm.expect(data._id).to.equal(pm.environment.get('queueEntryId')); pm.expect(data.arrivedAt).to.equal(pm.environment.get('firstArrivedAt')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q1 Cancelled booking cannot arrive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentId\": \"{{cancelledAppointmentId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code APPOINTMENT_CANCELLED', () => pm.expect(pm.response.json().code).to.equal('APPOINTMENT_CANCELLED'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q2 Queue requires dentist and date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q2 View arrival order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues?dentist={{dentistId}}&bookingDate={{extraBookingDate}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Two arrivals in order', () => { pm.expect(rows.length).to.equal(2); pm.expect(rows[0].appointment).to.equal(pm.environment.get('extraAppointmentId')); pm.expect(rows[1].appointment).to.equal(pm.environment.get('queueAppointmentId')); });",
+                  "pm.test('Sorted by arrival time', () => pm.expect(Date.parse(rows[0].arrivedAt)).to.be.at.most(Date.parse(rows[1].arrivedAt)));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q3 Cannot skip waiting to completed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues/{{secondQueueEntryId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"completed\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code INVALID_QUEUE_TRANSITION', () => pm.expect(pm.response.json().code).to.equal('INVALID_QUEUE_TRANSITION'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q3 Call first user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"called\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status called', () => pm.expect(pm.response.json().data.status).to.equal('called'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q3 Repeat call changes nothing",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"called\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Still called', () => pm.expect(pm.response.json().data.status).to.equal('called'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q3 Complete first user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"completed\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status completed', () => pm.expect(pm.response.json().data.status).to.equal('completed'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Q3 Cannot move back to waiting",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues/{{queueEntryId}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"waiting\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code INVALID_QUEUE_TRANSITION', () => pm.expect(pm.response.json().code).to.equal('INVALID_QUEUE_TRANSITION'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W0 Waiting user A login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{waiterAEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('waiterAToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W1 Waiting user A join",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Entry for dentist and date', () => { pm.expect(data.dentist).to.equal(pm.environment.get('dentistId')); pm.expect(data.bookingDate).to.equal(pm.environment.get('extraBookingDate')); });",
+                  "if (pm.response.code === 201) { pm.environment.set('waitlistEntryId', data._id); pm.environment.set('waiterAId', data.user); }",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W1 Waiting user A cannot join twice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code ALREADY_ON_WAITING_LIST', () => pm.expect(pm.response.json().code).to.equal('ALREADY_ON_WAITING_LIST'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W0 Waiting user B login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{waiterBEmail}}\", \"password\": \"{{demoPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Token returned at top level', () => pm.expect(data.token).to.be.a('string'));",
+                  "pm.test('Password omitted', () => pm.expect(data).not.to.have.property('password'));",
+                  "if (pm.response.code === 200) pm.environment.set('waiterBToken', data.token);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W1 Waiting user B join",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterBToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.environment.set('waitlistEntryBId', pm.response.json().data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W2 User sees only their own entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Only waiter A entries', () => { pm.expect(rows.length).to.equal(1); rows.forEach((row) => pm.expect(row.user).to.equal(pm.environment.get('waiterAId'))); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W2 Admin must choose dentist and date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W3 Admin cancels a booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/appointments/{{extraAppointmentId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "if (pm.response.code === 200) { pm.environment.set('cancelledDentistId', data.dentistId); pm.environment.set('cancelledBookingDate', data.bookingDate); }",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W3 Cancelled booking leaves the arrival queue",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/queues?dentist={{dentistId}}&bookingDate={{extraBookingDate}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Only the remaining booking is queued', () => { const rows = pm.response.json().data; pm.expect(rows.length).to.equal(1); pm.expect(rows[0].appointment).to.equal(pm.environment.get('queueAppointmentId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W3 Admin view waiting registration order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Two waiters in registration order', () => { pm.expect(rows.length).to.equal(2); pm.expect(rows[0]._id).to.equal(pm.environment.get('waitlistEntryId')); pm.expect(rows[1]._id).to.equal(pm.environment.get('waitlistEntryBId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W4 Another user cannot remove the entry",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterBToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list/{{waitlistEntryId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code NOT_FOUND', () => pm.expect(pm.response.json().code).to.equal('NOT_FOUND'));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W4 Waiting user A leave",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list/{{waitlistEntryId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W4 Admin verify remaining waiter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('One waiter remains', () => { const body = pm.response.json(); pm.expect(body.count).to.equal(1); pm.expect(body.data[0]._id).to.equal(pm.environment.get('waitlistEntryBId')); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W5 Waiting user A rejoins",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{waiterAToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"dentist\": \"{{dentistId}}\", \"bookingDate\": \"{{extraBookingDate}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.environment.set('waitlistEntryId', pm.response.json().data._id);",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "W5 Rejoined user goes to the end",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/waiting-list?dentist={{cancelledDentistId}}&bookingDate={{cancelledBookingDate}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Waiter B first, waiter A last', () => { const rows = pm.response.json().data; pm.expect(rows.map((row) => row._id)).to.deep.equal([pm.environment.get('waitlistEntryBId'), pm.environment.get('waitlistEntryId')]); });",
+                  "})();"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

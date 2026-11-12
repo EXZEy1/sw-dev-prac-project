@@ -14,13 +14,17 @@
     "setup:local": "node scripts/setup-local.js",
     "db:demo": "node scripts/demo-db.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test --test-concurrency=1 __tests__/p0.test.js __tests__/user-features.test.js",
+    "test": "node --test --test-concurrency=1 __tests__/p0.test.js __tests__/user-features.test.js __tests__/integration.test.js",
     "check:p0": "npm test",
+    "build:collection": "node scripts/build-collection.js",
     "demo:p0": "node scripts/run-collection.js p0",
     "demo:user": "node scripts/run-collection.js user-core",
     "demo:extra": "node scripts/run-collection.js questionnaire-qr",
     "demo:admin": "node scripts/run-collection.js admin-core",
-    "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist"
+    "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist",
+    "demo:all": "node scripts/run-collection.js dentist-booking",
+    "demo:core": "node scripts/run-collection.js dentist-booking core",
+    "demo:extras": "node scripts/run-collection.js dentist-booking extras"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",

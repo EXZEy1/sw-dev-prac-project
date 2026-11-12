@@ -2,7 +2,7 @@
   "info": {
     "name": "Dentist Booking - P0 starter checks",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Checks auth, readiness and route role guards. Admin access may return 200 when implemented or explicit 501 during handoff. Use admin-core and queue-waitlist collections to verify B features."
+    "description": "Checks auth, database readiness and route role guards after the A+B integration. Admin access must return 200. Use admin-core and queue-waitlist collections to verify all B features."
   },
   "item": [
     {
@@ -216,8 +216,8 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Admin passes the role guard', () => pm.expect(pm.response.code).to.be.oneOf([200, 501]));",
-              "pm.test('Explicit response for the current phase', () => { if (pm.response.code === 501) pm.expect(pm.response.json().code).to.equal('FEATURE_NOT_IMPLEMENTED'); else { pm.expect(pm.response.json().success).to.equal(true); pm.expect(pm.response.json().data).to.be.an('array'); } });"
+              "pm.test('Admin passes the role guard', () => pm.response.to.have.status(200));",
+              "pm.test('Implemented admin list response', () => { pm.expect(pm.response.json().success).to.equal(true); pm.expect(pm.response.json().data).to.be.an('array'); });"
             ]
           }
         }
