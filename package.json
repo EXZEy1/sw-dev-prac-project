@@ -21,7 +21,10 @@
     "demo:user": "node scripts/run-collection.js user-core",
     "demo:extra": "node scripts/run-collection.js questionnaire-qr",
     "demo:admin": "node scripts/run-collection.js admin-core",
-    "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist"
+    "demo:queue-waitlist": "node scripts/run-collection.js queue-waitlist",
+    "demo:all": "node scripts/run-collection.js dentist-booking",
+    "demo:core": "node scripts/run-collection.js dentist-booking core",
+    "demo:extras": "node scripts/run-collection.js dentist-booking extras"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",
