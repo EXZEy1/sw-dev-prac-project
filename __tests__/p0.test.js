@@ -98,13 +98,9 @@ test('anonymous/expired/forged tokens fail and authorization uses role from DB',
   assert.equal((await request('GET', '/api/v1/admin/appointments', undefined, wrongRole)).status, 403);
   assert.equal((await request('GET', '/api/v1/queues', undefined, userToken)).status, 403);
   const adminAccess = await request('GET', '/api/v1/admin/appointments', undefined, adminToken);
-  // This is a role-guard check. The admin feature collection verifies B's behavior.
-  assert.ok([200, 501].includes(adminAccess.status));
-  if (adminAccess.status === 501) assert.equal(adminAccess.body.code, 'FEATURE_NOT_IMPLEMENTED');
-  else {
-    assert.equal(adminAccess.body.success, true);
-    assert.ok(Array.isArray(adminAccess.body.data));
-  }
+  assert.equal(adminAccess.status, 200);
+  assert.equal(adminAccess.body.success, true);
+  assert.ok(Array.isArray(adminAccess.body.data));
 });
 
 test('register validates telephone/types, rejects public admin registration and normalizes email', async () => {
@@ -218,6 +214,9 @@ test('demo reset refuses unrelated/remote/production databases', () => {
   assert.doesNotThrow(() => assertDemoDatabase(valid));
   assert.throws(() => assertDemoDatabase({ ...valid, name: 'assignment7' }), /Refusing reset/);
   assert.throws(() => assertDemoDatabase({ ...valid, host: 'example.com' }), /Refusing reset/);
+  assert.doesNotThrow(() => assertDemoDatabase({ ...valid, host: 'cluster0.ab1cd.mongodb.net' }));
+  assert.throws(() => assertDemoDatabase({ ...valid, host: 'mongodb.net.example.com' }), /Refusing reset/);
+  assert.throws(() => assertDemoDatabase({ name: 'assignment7', host: 'cluster0.ab1cd.mongodb.net' }), /Refusing reset/);
   process.env.NODE_ENV = 'production';
   try { assert.throws(() => assertDemoDatabase(valid), /Refusing reset/); }
   finally { process.env.NODE_ENV = 'test'; }
