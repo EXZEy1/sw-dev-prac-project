@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Dentist Booking - Additional 2-3 Queue and Waiting List",
+    "name": "Dentist Booking - Additional 2 and 3 Queue and Waiting List",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "B: arrival queue and waiting list. Run after a fresh seed:demo and after the questionnaire/QR demo."
   },

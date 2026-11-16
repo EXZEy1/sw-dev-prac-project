@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Dentist Booking - 01-08 User Core",
+    "name": "Dentist Booking - Core R1-R6 User",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "Core requirements 1-6 in presentation order. Creates a fresh user each run, enforces one booking and cancels it before logout. Credentials come from the local environment."
   },
@@ -11,7 +11,7 @@
         "type": "text/javascript",
         "exec": [
           "(() => {",
-          "if (pm.info.requestName === '01 Register - validation requires telephone') {",
+          "if (pm.info.requestName === 'R1 Register - validation requires telephone') {",
           "  pm.environment.set('userEmail', 'runner-' + pm.variables.replaceIn('{{$guid}}') + '@example.test');",
           "  ['userToken', 'userId', 'appointmentId', 'cancelledAt'].forEach(key => pm.environment.unset(key));",
           "  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
@@ -26,7 +26,7 @@
   ],
   "item": [
     {
-      "name": "01 Register - validation requires telephone",
+      "name": "R1 Register - validation requires telephone",
       "request": {
         "method": "POST",
         "header": [
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "name": "01 Register - create a new user",
+      "name": "R1 Register - create a new user",
       "request": {
         "method": "POST",
         "header": [
@@ -109,7 +109,7 @@
       ]
     },
     {
-      "name": "02 User login",
+      "name": "R2 User login",
       "request": {
         "method": "POST",
         "header": [
@@ -151,7 +151,7 @@
       ]
     },
     {
-      "name": "03 View dentist list",
+      "name": "R3 View dentist list",
       "request": {
         "method": "GET",
         "header": [
@@ -184,7 +184,7 @@
       ]
     },
     {
-      "name": "03 View dentist detail",
+      "name": "R3 View dentist detail",
       "request": {
         "method": "GET",
         "header": [
@@ -215,7 +215,7 @@
       ]
     },
     {
-      "name": "04 Create own booking",
+      "name": "R3 Create own booking",
       "request": {
         "method": "POST",
         "header": [
@@ -262,7 +262,7 @@
       ]
     },
     {
-      "name": "04 Reject a second booking",
+      "name": "R3 Reject a second booking",
       "request": {
         "method": "POST",
         "header": [
@@ -307,7 +307,7 @@
       ]
     },
     {
-      "name": "05 View own booking list",
+      "name": "R4 View own booking list",
       "request": {
         "method": "GET",
         "header": [
@@ -338,7 +338,7 @@
       ]
     },
     {
-      "name": "05 View own booking detail",
+      "name": "R4 View own booking detail",
       "request": {
         "method": "GET",
         "header": [
@@ -369,7 +369,7 @@
       ]
     },
     {
-      "name": "06 Edit own booking",
+      "name": "R5 Edit own booking",
       "request": {
         "method": "PATCH",
         "header": [
@@ -414,7 +414,7 @@
       ]
     },
     {
-      "name": "06 Verify saved changes",
+      "name": "R5 Verify saved changes",
       "request": {
         "method": "GET",
         "header": [
@@ -445,7 +445,7 @@
       ]
     },
     {
-      "name": "07 Delete own booking",
+      "name": "R6 Delete own booking",
       "request": {
         "method": "DELETE",
         "header": [
@@ -478,7 +478,7 @@
       ]
     },
     {
-      "name": "07 Repeated cancellation keeps the same timestamp",
+      "name": "R6 Repeated cancellation keeps the same timestamp",
       "request": {
         "method": "DELETE",
         "header": [
@@ -509,7 +509,7 @@
       ]
     },
     {
-      "name": "07 Verify empty own booking list",
+      "name": "R6 Verify empty own booking list",
       "request": {
         "method": "GET",
         "header": [
@@ -540,7 +540,7 @@
       ]
     },
     {
-      "name": "07 Cancelled booking is hidden",
+      "name": "R6 Cancelled booking is hidden",
       "request": {
         "method": "GET",
         "header": [
@@ -570,7 +570,7 @@
       ]
     },
     {
-      "name": "08 User logout",
+      "name": "R2 User logout",
       "request": {
         "method": "GET",
         "header": [
@@ -602,7 +602,7 @@
       ]
     },
     {
-      "name": "08 Access without client token is denied",
+      "name": "R2 Access without client token is denied",
       "request": {
         "method": "GET",
         "header": [],

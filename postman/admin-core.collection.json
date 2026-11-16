@@ -1,12 +1,12 @@
 {
   "info": {
-    "name": "Dentist Booking - 09-12 Admin Core",
+    "name": "Dentist Booking - Core R7-R9 Admin",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "B: admin views, edits and cancels any booking. Run after a fresh seed:demo."
   },
   "item": [
     {
-      "name": "09 Admin login",
+      "name": "R7 Admin login",
       "request": {
         "method": "POST",
         "header": [
@@ -49,7 +49,7 @@
       ]
     },
     {
-      "name": "09 Admin role confirmed",
+      "name": "R7 Admin role confirmed",
       "request": {
         "method": "GET",
         "header": [
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "name": "09 Booking owner login",
+      "name": "R7 Booking owner login",
       "request": {
         "method": "POST",
         "header": [
@@ -125,7 +125,7 @@
       ]
     },
     {
-      "name": "09 Normal user cannot view all bookings",
+      "name": "R7 Normal user cannot view all bookings",
       "request": {
         "method": "GET",
         "header": [
@@ -156,7 +156,7 @@
       ]
     },
     {
-      "name": "09 Missing token is rejected",
+      "name": "R7 Missing token is rejected",
       "request": {
         "method": "GET",
         "header": [],
@@ -180,7 +180,7 @@
       ]
     },
     {
-      "name": "10 Admin view any bookings",
+      "name": "R7 Admin view any bookings",
       "request": {
         "method": "GET",
         "header": [
@@ -214,7 +214,7 @@
       ]
     },
     {
-      "name": "10 Admin filter bookings by dentist",
+      "name": "R7 Admin filter bookings by dentist",
       "request": {
         "method": "GET",
         "header": [
@@ -246,7 +246,7 @@
       ]
     },
     {
-      "name": "10 Admin view cancelled bookings",
+      "name": "R7 Admin view cancelled bookings",
       "request": {
         "method": "GET",
         "header": [
@@ -279,7 +279,7 @@
       ]
     },
     {
-      "name": "10 Invalid filter is rejected",
+      "name": "R7 Invalid filter is rejected",
       "request": {
         "method": "GET",
         "header": [
@@ -310,7 +310,7 @@
       ]
     },
     {
-      "name": "10 Admin view target booking",
+      "name": "R7 Admin view target booking",
       "request": {
         "method": "GET",
         "header": [
@@ -344,7 +344,7 @@
       ]
     },
     {
-      "name": "10 Malformed booking ID is rejected",
+      "name": "R7 Malformed booking ID is rejected",
       "request": {
         "method": "GET",
         "header": [
@@ -375,7 +375,7 @@
       ]
     },
     {
-      "name": "10 Unknown booking is not found",
+      "name": "R7 Unknown booking is not found",
       "request": {
         "method": "GET",
         "header": [
@@ -406,7 +406,7 @@
       ]
     },
     {
-      "name": "11 Admin cannot change the owner",
+      "name": "R8 Admin cannot change the owner",
       "request": {
         "method": "PATCH",
         "header": [
@@ -451,7 +451,7 @@
       ]
     },
     {
-      "name": "11 Admin edit target booking",
+      "name": "R8 Admin edit target booking",
       "request": {
         "method": "PATCH",
         "header": [
@@ -498,7 +498,7 @@
       ]
     },
     {
-      "name": "11 Verify booking change",
+      "name": "R8 Verify booking change",
       "request": {
         "method": "GET",
         "header": [
@@ -531,7 +531,7 @@
       ]
     },
     {
-      "name": "12 Admin cancel target booking",
+      "name": "R9 Admin cancel target booking",
       "request": {
         "method": "DELETE",
         "header": [
@@ -564,7 +564,7 @@
       ]
     },
     {
-      "name": "12 Repeat cancellation keeps the first time",
+      "name": "R9 Repeat cancellation keeps the first time",
       "request": {
         "method": "DELETE",
         "header": [
@@ -595,7 +595,7 @@
       ]
     },
     {
-      "name": "12 Verify cancellation",
+      "name": "R9 Verify cancellation",
       "request": {
         "method": "GET",
         "header": [
@@ -626,7 +626,7 @@
       ]
     },
     {
-      "name": "12 Cancelled booking leaves the current list",
+      "name": "R9 Cancelled booking leaves the current list",
       "request": {
         "method": "GET",
         "header": [
@@ -657,7 +657,7 @@
       ]
     },
     {
-      "name": "12 Cancelled booking cannot be edited",
+      "name": "R9 Cancelled booking cannot be edited",
       "request": {
         "method": "PATCH",
         "header": [

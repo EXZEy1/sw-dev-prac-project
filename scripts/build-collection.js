@@ -4,10 +4,10 @@ const path = require('node:path');
 const postmanDirectory = path.resolve(__dirname, '../postman');
 const groups = [
   ['p0', '00 Setup'],
-  ['user-core', '01-08 User Core'],
-  ['admin-core', '09-12 Admin Core'],
-  ['questionnaire-qr', '15 Extra - Questionnaire and QR'],
-  ['queue-waitlist', '15 Extra - Queue and Waiting List'],
+  ['user-core', 'Core R1-R6 - User'],
+  ['admin-core', 'Core R7-R9 - Admin'],
+  ['questionnaire-qr', 'Extra 1 and 4 - Questionnaire and QR'],
+  ['queue-waitlist', 'Extra 2 and 3 - Queue and Waiting List'],
 ];
 const CORE_FOLDERS = groups.slice(0, 3).map(([, name]) => name);
 const EXTRA_FOLDERS = groups.slice(3).map(([, name]) => name);

@@ -3,7 +3,6 @@ config/config.env
 .env
 coverage/
 .local/
-*.md
 postman/*.local.json
 artifacts/
 *.zip
@@ -11,4 +10,4 @@ artifacts/
 .DS_Store
 Thumbs.db
 material/
-docs/
+docs/code-changes-*.md

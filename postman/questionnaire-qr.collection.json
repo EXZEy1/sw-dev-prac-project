@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Dentist Booking - Questionnaire and QR",
+    "name": "Dentist Booking - Additional 1 and 4 Questionnaire and QR",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "Additional requirements #1 and #4. Uses the separate extra booking. Does not cancel it so the queue/waiting-list demo can run afterwards. Newman exports a PNG from this run after all assertions pass."
   },

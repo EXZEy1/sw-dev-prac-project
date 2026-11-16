@@ -296,7 +296,7 @@
       ]
     },
     {
-      "name": "01-08 User Core",
+      "name": "Core R1-R6 - User",
       "description": "Core requirements 1-6 in presentation order. Creates a fresh user each run, enforces one booking and cancels it before logout. Credentials come from the local environment.",
       "event": [
         {
@@ -305,7 +305,7 @@
             "type": "text/javascript",
             "exec": [
               "(() => {",
-              "if (pm.info.requestName === '01 Register - validation requires telephone') {",
+              "if (pm.info.requestName === 'R1 Register - validation requires telephone') {",
               "  pm.environment.set('userEmail', 'runner-' + pm.variables.replaceIn('{{$guid}}') + '@example.test');",
               "  ['userToken', 'userId', 'appointmentId', 'cancelledAt'].forEach(key => pm.environment.unset(key));",
               "  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);",
@@ -320,7 +320,7 @@
       ],
       "item": [
         {
-          "name": "01 Register - validation requires telephone",
+          "name": "R1 Register - validation requires telephone",
           "request": {
             "method": "POST",
             "header": [
@@ -360,7 +360,7 @@
           ]
         },
         {
-          "name": "01 Register - create a new user",
+          "name": "R1 Register - create a new user",
           "request": {
             "method": "POST",
             "header": [
@@ -403,7 +403,7 @@
           ]
         },
         {
-          "name": "02 User login",
+          "name": "R2 User login",
           "request": {
             "method": "POST",
             "header": [
@@ -445,7 +445,7 @@
           ]
         },
         {
-          "name": "03 View dentist list",
+          "name": "R3 View dentist list",
           "request": {
             "method": "GET",
             "header": [
@@ -478,7 +478,7 @@
           ]
         },
         {
-          "name": "03 View dentist detail",
+          "name": "R3 View dentist detail",
           "request": {
             "method": "GET",
             "header": [
@@ -509,7 +509,7 @@
           ]
         },
         {
-          "name": "04 Create own booking",
+          "name": "R3 Create own booking",
           "request": {
             "method": "POST",
             "header": [
@@ -556,7 +556,7 @@
           ]
         },
         {
-          "name": "04 Reject a second booking",
+          "name": "R3 Reject a second booking",
           "request": {
             "method": "POST",
             "header": [
@@ -601,7 +601,7 @@
           ]
         },
         {
-          "name": "05 View own booking list",
+          "name": "R4 View own booking list",
           "request": {
             "method": "GET",
             "header": [
@@ -632,7 +632,7 @@
           ]
         },
         {
-          "name": "05 View own booking detail",
+          "name": "R4 View own booking detail",
           "request": {
             "method": "GET",
             "header": [
@@ -663,7 +663,7 @@
           ]
         },
         {
-          "name": "06 Edit own booking",
+          "name": "R5 Edit own booking",
           "request": {
             "method": "PATCH",
             "header": [
@@ -708,7 +708,7 @@
           ]
         },
         {
-          "name": "06 Verify saved changes",
+          "name": "R5 Verify saved changes",
           "request": {
             "method": "GET",
             "header": [
@@ -739,7 +739,7 @@
           ]
         },
         {
-          "name": "07 Delete own booking",
+          "name": "R6 Delete own booking",
           "request": {
             "method": "DELETE",
             "header": [
@@ -772,7 +772,7 @@
           ]
         },
         {
-          "name": "07 Repeated cancellation keeps the same timestamp",
+          "name": "R6 Repeated cancellation keeps the same timestamp",
           "request": {
             "method": "DELETE",
             "header": [
@@ -803,7 +803,7 @@
           ]
         },
         {
-          "name": "07 Verify empty own booking list",
+          "name": "R6 Verify empty own booking list",
           "request": {
             "method": "GET",
             "header": [
@@ -834,7 +834,7 @@
           ]
         },
         {
-          "name": "07 Cancelled booking is hidden",
+          "name": "R6 Cancelled booking is hidden",
           "request": {
             "method": "GET",
             "header": [
@@ -864,7 +864,7 @@
           ]
         },
         {
-          "name": "08 User logout",
+          "name": "R2 User logout",
           "request": {
             "method": "GET",
             "header": [
@@ -896,7 +896,7 @@
           ]
         },
         {
-          "name": "08 Access without client token is denied",
+          "name": "R2 Access without client token is denied",
           "request": {
             "method": "GET",
             "header": [],
@@ -922,7 +922,7 @@
       ]
     },
     {
-      "name": "09-12 Admin Core",
+      "name": "Core R7-R9 - Admin",
       "description": "B: admin views, edits and cancels any booking. Run after a fresh seed:demo.",
       "event": [
         {
@@ -941,7 +941,7 @@
       ],
       "item": [
         {
-          "name": "09 Admin login",
+          "name": "R7 Admin login",
           "request": {
             "method": "POST",
             "header": [
@@ -984,7 +984,7 @@
           ]
         },
         {
-          "name": "09 Admin role confirmed",
+          "name": "R7 Admin role confirmed",
           "request": {
             "method": "GET",
             "header": [
@@ -1017,7 +1017,7 @@
           ]
         },
         {
-          "name": "09 Booking owner login",
+          "name": "R7 Booking owner login",
           "request": {
             "method": "POST",
             "header": [
@@ -1060,7 +1060,7 @@
           ]
         },
         {
-          "name": "09 Normal user cannot view all bookings",
+          "name": "R7 Normal user cannot view all bookings",
           "request": {
             "method": "GET",
             "header": [
@@ -1091,7 +1091,7 @@
           ]
         },
         {
-          "name": "09 Missing token is rejected",
+          "name": "R7 Missing token is rejected",
           "request": {
             "method": "GET",
             "header": [],
@@ -1115,7 +1115,7 @@
           ]
         },
         {
-          "name": "10 Admin view any bookings",
+          "name": "R7 Admin view any bookings",
           "request": {
             "method": "GET",
             "header": [
@@ -1149,7 +1149,7 @@
           ]
         },
         {
-          "name": "10 Admin filter bookings by dentist",
+          "name": "R7 Admin filter bookings by dentist",
           "request": {
             "method": "GET",
             "header": [
@@ -1181,7 +1181,7 @@
           ]
         },
         {
-          "name": "10 Admin view cancelled bookings",
+          "name": "R7 Admin view cancelled bookings",
           "request": {
             "method": "GET",
             "header": [
@@ -1214,7 +1214,7 @@
           ]
         },
         {
-          "name": "10 Invalid filter is rejected",
+          "name": "R7 Invalid filter is rejected",
           "request": {
             "method": "GET",
             "header": [
@@ -1245,7 +1245,7 @@
           ]
         },
         {
-          "name": "10 Admin view target booking",
+          "name": "R7 Admin view target booking",
           "request": {
             "method": "GET",
             "header": [
@@ -1279,7 +1279,7 @@
           ]
         },
         {
-          "name": "10 Malformed booking ID is rejected",
+          "name": "R7 Malformed booking ID is rejected",
           "request": {
             "method": "GET",
             "header": [
@@ -1310,7 +1310,7 @@
           ]
         },
         {
-          "name": "10 Unknown booking is not found",
+          "name": "R7 Unknown booking is not found",
           "request": {
             "method": "GET",
             "header": [
@@ -1341,7 +1341,7 @@
           ]
         },
         {
-          "name": "11 Admin cannot change the owner",
+          "name": "R8 Admin cannot change the owner",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1386,7 +1386,7 @@
           ]
         },
         {
-          "name": "11 Admin edit target booking",
+          "name": "R8 Admin edit target booking",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1433,7 +1433,7 @@
           ]
         },
         {
-          "name": "11 Verify booking change",
+          "name": "R8 Verify booking change",
           "request": {
             "method": "GET",
             "header": [
@@ -1466,7 +1466,7 @@
           ]
         },
         {
-          "name": "12 Admin cancel target booking",
+          "name": "R9 Admin cancel target booking",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1499,7 +1499,7 @@
           ]
         },
         {
-          "name": "12 Repeat cancellation keeps the first time",
+          "name": "R9 Repeat cancellation keeps the first time",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1530,7 +1530,7 @@
           ]
         },
         {
-          "name": "12 Verify cancellation",
+          "name": "R9 Verify cancellation",
           "request": {
             "method": "GET",
             "header": [
@@ -1561,7 +1561,7 @@
           ]
         },
         {
-          "name": "12 Cancelled booking leaves the current list",
+          "name": "R9 Cancelled booking leaves the current list",
           "request": {
             "method": "GET",
             "header": [
@@ -1592,7 +1592,7 @@
           ]
         },
         {
-          "name": "12 Cancelled booking cannot be edited",
+          "name": "R9 Cancelled booking cannot be edited",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1639,7 +1639,7 @@
       ]
     },
     {
-      "name": "15 Extra - Questionnaire and QR",
+      "name": "Extra 1 and 4 - Questionnaire and QR",
       "description": "Additional requirements #1 and #4. Uses the separate extra booking. Does not cancel it so the queue/waiting-list demo can run afterwards. Newman exports a PNG from this run after all assertions pass.",
       "item": [
         {
@@ -2115,7 +2115,7 @@
       ]
     },
     {
-      "name": "15 Extra - Queue and Waiting List",
+      "name": "Extra 2 and 3 - Queue and Waiting List",
       "description": "B: arrival queue and waiting list. Run after a fresh seed:demo and after the questionnaire/QR demo.",
       "event": [
         {
