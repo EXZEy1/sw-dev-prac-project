@@ -8,7 +8,7 @@ postman/*.local.json
 artifacts/
 *.zip
 *.bundle
-material/slide/
-material/existing_additional_req.txt
 .DS_Store
 Thumbs.db
+material/
+docs/
